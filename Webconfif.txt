@@ -1,0 +1,222 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  For more information on how to configure your ASP.NET application, please visit
+  http://go.microsoft.com/fwlink/?LinkId=301880
+-->
+<configuration>
+	<configSections>
+		<!-- For more information on Entity Framework configuration, visit http://go.microsoft.com/fwlink/?LinkID=237468 -->
+		<section name="entityFramework" type="System.Data.Entity.Internal.ConfigFile.EntityFrameworkSection, EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" requirePermission="false" />
+	</configSections>
+
+	<appSettings>
+		<add key="webpages:Version" value="3.0.0.0" />
+		<add key="webpages:Enabled" value="false" />
+		<add key="ClientValidationEnabled" value="true" />
+		<add key="UnobtrusiveJavaScriptEnabled" value="true" />
+
+		<!-- File Storage Paths -->
+		<!-- RECOMMENDED: change these to short absolute paths (e.g., D:\BD\Final, D:\BD\Temp, D:\BD\Merged) to minimize path length issues. -->
+		<add key="FileUploadPath" value="~/App_Data/Uploads/Final" />
+		<add key="TempChunkUploadPath" value="~/App_Data/Uploads/Temp" />
+		<add key="TempMergePath" value="~/App_Data/Uploads/Merged" />
+
+		<!-- Upload Parameters -->
+		<add key="ChunkSizeInMB" value="10" />
+		<add key="MaxChunkRetries" value="3" />
+		<add key="UploadLockTimeoutInMinutes" value="1" />
+		<add key="FileStreamBufferSizeInKB" value="8192" />
+
+		<!-- Checksum Calculation Parameters (Client-Side) -->
+		<add key="ChecksumSamplingThresholdGB" value="3" />
+		<add key="ChecksumSampleSizeMB" value="10" />
+		<add key="ChecksumFullCalcChunkSizeMB" value="5" />
+
+		<!-- Authentication -->
+		<add key="ActiveDirectoryDomain" value="BANKOFBARODA" />
+		<add key="DefaultUserRoleId" value="1" />
+
+		<!-- External Tools -->
+		<add key="7ZipExecutablePath" value="~/bin/CLI_Tools/7z.exe" />
+
+		<!-- File Operation Parameters -->
+		<add key="DiskSpaceCheckMultiplier" value="2.2" />
+		<add key="GeneratedPasswordLength" value="12" />
+		<add key="GeneratedPasswordChars" value="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890" />
+		<add key="FinalizationPollingIntervalMs" value="2000" />
+
+		<!-- NEW: DB-tracked TUS session expiry -->
+		<add key="UploadSessionExpiryDays" value="15" />
+
+		<!-- OWIN Startup -->
+		<add key="owin:AppStartup" value="BOBDrive.App_Start.HangfireConfig" />
+
+		<!-- Zipping watchdog -->
+		<add key="ZipProgressStallTimeoutMinutes" value="30" />
+		<add key="ZipVerboseOutput" value="true" />
+
+		<!-- Resource gating thresholds for ZIP workload -->
+		<add key="MaxConcurrentZipJobs" value="4" />
+		<add key="ZipGateMaxCpuPercent" value="100" />
+		<add key="ZipGateMaxMemoryPercent" value="90" />
+		<add key="ZipGateMaxDiskPercent" value="100" />
+		<add key="ZipGateMinFreeDiskGB" value="5" />
+		
+	</appSettings>
+
+	<connectionStrings>
+		<add name="CloudStorageDbContext" connectionString="metadata=res://*/Models.CloudStorageModel.csdl|res://*/Models.CloudStorageModel.ssdl|res://*/Models.CloudStorageModel.msl;provider=System.Data.SqlClient;provider connection string=&quot;data source=localhost;initial catalog=BOBDriveDB;persist security info=True;user id=sa;password=Welcome1;MultipleActiveResultSets=True;App=EntityFramework&quot;" providerName="System.Data.EntityClient" />
+		<!-- Hangfire (SQL Server) -->
+		<add name="HangfireDB" connectionString="data source=localhost;initial catalog=BOBDriveDB;persist security info=True;user id=sa;password=Welcome1;MultipleActiveResultSets=True;" providerName="System.Data.SqlClient" />
+	</connectionStrings>
+
+	<system.web>
+		<customErrors mode="Off" />
+		<authentication mode="Forms">
+			<forms loginUrl="~/Account/Login" timeout="2880" />
+		</authentication>
+		<compilation debug="true" targetFramework="4.8" />
+		<!--
+      maxRequestLength is in kilobytes (KB). 2097151 KB = approx 2GB.
+      For 100GB, this value needs to be significantly larger: 100 * 1024 * 1024 = 104857600 KB.
+      executionTimeout is in seconds. 3600 seconds = 1 hour. Increase if needed for very slow uploads.
+    -->
+		<httpRuntime targetFramework="4.8" maxRequestLength="102400" executionTimeout="10800" />
+	</system.web>
+
+	<system.webServer>
+		
+		
+		<validation validateIntegratedModeConfiguration="false" />
+
+		<handlers>
+			<!-- Force MVC to handle all requests to /File/ paths -->
+			<add name="FileControllerHandler"
+				 path="File/*"
+				 verb="*"
+				 type="System.Web.Handlers. TransferRequestHandler"
+				 preCondition="integratedMode,runtimeVersionv4.0" />
+		</handlers>
+		
+		<modules runAllManagedModulesForAllRequests="true" />
+		<security>
+			<requestFiltering>
+				<!-- maxAllowedContentLength is in bytes (B). Default is ~28.6MB.
+             For chunked uploads, set this above your max chunk size. -->
+				<requestLimits maxAllowedContentLength="104857600" />
+			</requestFiltering>
+		</security>
+	</system.webServer>
+
+	<runtime>
+		<!-- CRITICAL: Enable long path support for System.IO in .NET Framework -->
+		<AppContextSwitchOverrides value="Switch.System.IO.UseLegacyPathHandling=false;Switch.System.IO.BlockLongPaths=false" />
+
+		<assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+			<dependentAssembly>
+				<assemblyIdentity name="Newtonsoft.Json" culture="neutral" publicKeyToken="30ad4fe6b2a6aeed" />
+				<bindingRedirect oldVersion="0.0.0.0-13.0.0.0" newVersion="13.0.0.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Web.Optimization" publicKeyToken="31bf3856ad364e35" />
+				<bindingRedirect oldVersion="1.0.0.0-1.1.0.0" newVersion="1.1.0.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="WebGrease" publicKeyToken="31bf3856ad364e35" />
+				<bindingRedirect oldVersion="0.0.0.0-1.5.2.14234" newVersion="1.5.2.14234" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Web.Helpers" publicKeyToken="31bf3856ad364e35" />
+				<bindingRedirect oldVersion="1.0.0.0-3.0.0.0" newVersion="3.0.0.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Web.WebPages" publicKeyToken="31bf3856ad364e35" />
+				<bindingRedirect oldVersion="1.0.0.0-3.0.0.0" newVersion="3.0.0.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="System.Web.Mvc" publicKeyToken="31bf3856ad364e35" />
+				<bindingRedirect oldVersion="0.0.0.0-5.2.9.0" newVersion="5.2.9.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="Microsoft.Web.Infrastructure" publicKeyToken="31bf3856ad364e35" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-2.0.0.0" newVersion="2.0.0.0" />
+			</dependentAssembly>
+			<dependentAssembly>
+				<assemblyIdentity name="Microsoft.Owin" publicKeyToken="31bf3856ad364e35" culture="neutral" />
+				<bindingRedirect oldVersion="0.0.0.0-4.2.3.0" newVersion="4.2.3.0" />
+			</dependentAssembly>
+		</assemblyBinding>
+	</runtime>
+
+	<entityFramework>
+		<providers>
+			<provider invariantName="System.Data.SqlClient" type="System.Data.Entity.SqlServer.SqlProviderServices, EntityFramework.SqlServer" />
+		</providers>
+	</entityFramework>
+</configuration>
+<!--<configuration>
+  <configSections>
+    -->
+<!-- For more information on Entity Framework configuration, visit http://go.microsoft.com/fwlink/?LinkID=237468 -->
+<!--
+    <section name="entityFramework" type="System.Data.Entity.Internal.ConfigFile.EntityFrameworkSection, EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" requirePermission="false" />
+  </configSections>
+  <appSettings>
+    <add key="webpages:Version" value="3.0.0.0" />
+    <add key="webpages:Enabled" value="false" />
+    <add key="ClientValidationEnabled" value="true" />
+    <add key="UnobtrusiveJavaScriptEnabled" value="true" />
+  </appSettings>
+  <system.web>
+    <compilation debug="true" targetFramework="4.8" />
+    <httpRuntime targetFramework="4.8" />
+  </system.web>
+  <runtime>
+    <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+      <dependentAssembly>
+        <assemblyIdentity name="Newtonsoft.Json" culture="neutral" publicKeyToken="30ad4fe6b2a6aeed" />
+        <bindingRedirect oldVersion="0.0.0.0-13.0.0.0" newVersion="13.0.0.0" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.Optimization" publicKeyToken="31bf3856ad364e35" />
+        <bindingRedirect oldVersion="1.0.0.0-1.1.0.0" newVersion="1.1.0.0" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="WebGrease" publicKeyToken="31bf3856ad364e35" />
+        <bindingRedirect oldVersion="0.0.0.0-1.5.2.14234" newVersion="1.5.2.14234" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.Helpers" publicKeyToken="31bf3856ad364e35" />
+        <bindingRedirect oldVersion="1.0.0.0-3.0.0.0" newVersion="3.0.0.0" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.WebPages" publicKeyToken="31bf3856ad364e35" />
+        <bindingRedirect oldVersion="1.0.0.0-3.0.0.0" newVersion="3.0.0.0" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="System.Web.Mvc" publicKeyToken="31bf3856ad364e35" />
+        <bindingRedirect oldVersion="0.0.0.0-5.2.9.0" newVersion="5.2.9.0" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name="Microsoft.Web.Infrastructure" publicKeyToken="31bf3856ad364e35" culture="neutral" />
+        <bindingRedirect oldVersion="0.0.0.0-2.0.0.0" newVersion="2.0.0.0" />
+      </dependentAssembly>
+    </assemblyBinding>
+  </runtime>
+  <entityFramework>
+    <providers>
+      <provider invariantName="System.Data.SqlClient" type="System.Data.Entity.SqlServer.SqlProviderServices, EntityFramework.SqlServer" />
+    </providers>
+  </entityFramework>
+  <system.webServer>
+    <handlers>
+      <remove name="ExtensionlessUrlHandler-Integrated-4.0" />
+      <remove name="OPTIONSVerbHandler" />
+      <remove name="TRACEVerbHandler" />
+      <add name="ExtensionlessUrlHandler-Integrated-4.0" path="*." verb="*" type="System.Web.Handlers.TransferRequestHandler" preCondition="integratedMode,runtimeVersionv4.0" />
+    </handlers>
+  </system.webServer>
+  <connectionStrings>
+    <add name="CloudStorageDbContext" connectionString="metadata=res://*/Models.CloudStorageModel.csdl|res://*/Models.CloudStorageModel.ssdl|res://*/Models.CloudStorageModel.msl;provider=System.Data.SqlClient;provider connection string=&quot;data source=172.16.251.139;initial catalog=BobDriveDB;user id=sa;password=Welcome1;MultipleActiveResultSets=True;App=EntityFramework&quot;" providerName="System.Data.EntityClient" />
+  </connectionStrings>
+</configuration>-->

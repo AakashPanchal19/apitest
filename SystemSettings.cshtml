@@ -1,0 +1,493 @@
+﻿@model BOBDrive.ViewModels.Admin.SystemSettingsViewModel
+@using System.Collections.Generic
+@using System
+
+@{
+    ViewBag.Title = "System Settings";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    // Pre-normalize allowed extensions so Razor markup stays simple
+    var normalizedExts = new List<string>();
+    if (Model.AllowedExtensionsList != null)
+    {
+        foreach (var e in Model.AllowedExtensionsList)
+        {
+            if (!string.IsNullOrWhiteSpace(e))
+            {
+                var v = e.Trim().ToLowerInvariant();
+                if (!v.StartsWith(".")) { v = "." + v; } // FIX: Added braces to satisfy Razor block requirement
+                if (!normalizedExts.Contains(v, StringComparer.OrdinalIgnoreCase))
+                {
+                    normalizedExts.Add(v);
+                }
+            }
+        }
+    }
+
+    // FIX: Precompute upload usage percent for safe Razor attribute usage
+    var uploadDriveUsagePercentCssWidth = Model.UploadDriveUsagePercent.ToString("0.##") + "%";
+}
+
+<h2><i class="glyphicon glyphicon-wrench"></i> System Settings</h2>
+<hr />
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["SuccessMessage"]
+    </div>
+}
+
+@using (Html.BeginForm("SystemSettings", "AdminDashboard", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+{
+    @Html.AntiForgeryToken()
+
+    <!-- Upload Configuration -->
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h3 class="panel-title"><i class="glyphicon glyphicon-upload"></i> Upload Configuration</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.ChunkSizeInBytes, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ChunkSizeInBytes</p>
+                </div>
+                @Html.LabelFor(m => m.ChunkSizeInMB, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ChunkSizeInMB.ToString("0.##") MB</p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                @Html.LabelFor(m => m.MaxChunkRetries, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.MaxChunkRetries</p>
+                </div>
+
+                @Html.LabelFor(m => m.FileStreamBufferSize, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.FileStreamBufferSize.ToString("N0") bytes</p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                @Html.LabelFor(m => m.ChecksumSamplingThresholdBytes, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">
+                        @Model.ChecksumSamplingThresholdBytes.ToString("N0") bytes
+                        (@Model.ChecksumSamplingThresholdMB.ToString("0.##") MB)
+                    </p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                @Html.LabelFor(m => m.ChecksumSampleSizeBytes, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">
+                        @Model.ChecksumSampleSizeBytes.ToString("N0") bytes
+                        (@Model.ChecksumSampleSizeKB.ToString("0.##") KB)
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User & Authentication -->
+    <div class="panel panel-info">
+        <div class="panel-heading">
+            <h3 class="panel-title"><i class="glyphicon glyphicon-lock"></i> User &amp; Authentication</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.DefaultUserRoleId, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.DefaultUserRoleId</p>
+                </div>
+
+                @Html.LabelFor(m => m.ActiveDirectoryDomain, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ActiveDirectoryDomain</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paths -->
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title"><i class="glyphicon glyphicon-folder-open"></i> File Paths</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.FinalUploadPath, new { @class = "control-label col-md-3" })
+                <div class="col-md-9">
+                    <p class="form-control-static">@Model.FinalUploadPath</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.TempChunkPath, new { @class = "control-label col-md-3" })
+                <div class="col-md-9">
+                    <p class="form-control-static">@Model.TempChunkPath</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.TempMergePath, new { @class = "control-label col-md-3" })
+                <div class="col-md-9">
+                    <p class="form-control-static">@Model.TempMergePath</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.TusStorePath, new { @class = "control-label col-md-3" })
+                <div class="col-md-9">
+                    <p class="form-control-static">@Model.TusStorePath</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database & Hangfire -->
+    <div class="panel panel-warning">
+        <div class="panel-heading">
+            <h3 class="panel-title"><i class="glyphicon glyphicon-hdd"></i> Database &amp; Hangfire</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.DatabaseConnectionString, new { @class = "control-label col-md-3" })
+                <div class="col-md-9">
+                    <p class="form-control-static"><code>@Model.DatabaseConnectionString</code></p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.HangfireConnectionString, new { @class = "control-label col-md-3" })
+                <div class="col-md-9">
+                    <p class="form-control-static"><code>@Model.HangfireConnectionString</code></p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                @Html.LabelFor(m => m.HangfireWorkersDefault, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.HangfireWorkersDefault</p>
+                </div>
+                @Html.LabelFor(m => m.HangfireWorkersZip, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.HangfireWorkersZip</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.HangfireWorkersMaintenance, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.HangfireWorkersMaintenance</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Information -->
+    <div class="panel panel-success">
+        <div class="panel-heading">
+            <h3 class="panel-title"><i class="glyphicon glyphicon-blackboard"></i> System Information</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.ServerName, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ServerName</p>
+                </div>
+
+                @Html.LabelFor(m => m.ApplicationVersion, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ApplicationVersion</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.FrameworkVersion, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.FrameworkVersion</p>
+                </div>
+
+                @Html.LabelFor(m => m.ApplicationPool, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ApplicationPool</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.ServerTimeUtc, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ServerTimeUtc</p>
+                </div>
+
+                @Html.LabelFor(m => m.ServerTimeLocal, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ServerTimeLocal</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage & Statistics -->
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title"><i class="glyphicon glyphicon-stats"></i> Storage &amp; Statistics</h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.UploadDriveTotalSpaceGB, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.UploadDriveTotalSpaceGB.ToString("0.##") GB</p>
+                </div>
+                @Html.LabelFor(m => m.UploadDriveFreeSpaceGB, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.UploadDriveFreeSpaceGB.ToString("0.##") GB</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.UploadDriveUsedSpaceGB, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.UploadDriveUsedSpaceGB.ToString("0.##") GB</p>
+                </div>
+
+                @Html.LabelFor(m => m.UploadDriveUsagePercent, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <div class="progress" style="margin-bottom: 0;">
+                        <div class="progress-bar" role="progressbar"
+                             aria-valuenow="@Model.UploadDriveUsagePercent"
+                             aria-valuemin="0" aria-valuemax="100"
+                             style="width: @uploadDriveUsagePercentCssWidth;">
+                            @Model.UploadDriveUsagePercent.ToString("0.##") %
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="form-group">
+                @Html.LabelFor(m => m.TotalUsers, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.TotalUsers</p>
+                </div>
+
+                @Html.LabelFor(m => m.TotalAdminUsers, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.TotalAdminUsers</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.TotalFiles, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.TotalFiles</p>
+                </div>
+
+                @Html.LabelFor(m => m.TotalFolders, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.TotalFolders</p>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor(m => m.TotalStorageUsedGB, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.TotalStorageUsedGB.ToString("0.##") GB</p>
+                </div>
+
+                @Html.LabelFor(m => m.ActiveUploadSessions, new { @class = "control-label col-md-3" })
+                <div class="col-md-3">
+                    <p class="form-control-static">@Model.ActiveUploadSessions</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Allowed Upload Extensions (TUS) as tags -->
+    <div class="panel panel-danger">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                <i class="glyphicon glyphicon-filter"></i>
+                Allowed Upload Extensions (TUS)
+            </h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                @Html.LabelFor(m => m.AllowedExtensionsRaw, new { @class = "control-label col-md-3" })
+                <div class="col-md-7">
+
+                    @Html.TextBoxFor(
+                             m => m.AllowedExtensionsRaw,
+                             new { @class = "form-control", @id = "allowedExtHidden", style = "display:none;" }
+                         )
+
+                    <div id="allowedExtTagsWrapper"
+                         class="form-control"
+                         style="min-height: 38px; padding: 4px 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px;">
+
+                        @foreach (var ext in normalizedExts)
+                        {
+                            <span class="ext-tag label label-primary"
+                                  data-ext="@ext"
+                                  style="display:inline-flex;align-items:center;padding:2px 6px;margin:1px;">
+                                <span class="ext-text">@ext</span>
+                                <span class="ext-remove" style="cursor:pointer;margin-left:4px;">&times;</span>
+                            </span>
+                        }
+
+                        <input type="text"
+                               id="allowedExtInput"
+                               placeholder=".pdf, .docx …"
+                               style="border:none;outline:none;flex:1 0 80px;min-width:80px;" />
+                    </div>
+
+                    <p class="help-block" style="margin-top:4px;">
+                        Type an extension and press <strong>Enter</strong> or <strong>,</strong> to add it as a tag.
+                        Each extension is stored in lowercase and must start with a dot (e.g. <code>.pdf</code>).
+                        Duplicate extensions are ignored.
+                        Leave this list empty to allow all types.
+                    </p>
+                    @Html.ValidationMessageFor(m => m.AllowedExtensionsRaw, "", new { @class = "text-danger" })
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-offset-3 col-md-9">
+            <button type="submit" class="btn btn-primary">
+                <i class="glyphicon glyphicon-floppy-disk"></i> Save Settings
+            </button>
+            <a href="@Url.Action("Index", "AdminDashboard")" class="btn btn-default">
+                <i class="glyphicon glyphicon-remove"></i> Cancel
+            </a>
+        </div>
+    </div>
+}
+
+@section scripts {
+    <script>
+        (function () {
+            var hidden = document.getElementById('allowedExtHidden');
+            var input = document.getElementById('allowedExtInput');
+            var wrapper = document.getElementById('allowedExtTagsWrapper');
+
+            if (!hidden || !input || !wrapper) return;
+
+            function normalizeExt(ext) {
+                if (!ext) return null;
+                ext = ext.trim().toLowerCase();
+                if (!ext) return null;
+                if (!ext.startsWith('.')) ext = '.' + ext;
+                return ext;
+            }
+
+            function getCurrentTags() {
+                var tags = [];
+                var spans = wrapper.querySelectorAll('.ext-tag');
+                spans.forEach(function (s) {
+                    var v = s.getAttribute('data-ext');
+                    if (v) tags.push(v);
+                });
+                return tags;
+            }
+
+            function syncHiddenFromTags() {
+                var tags = getCurrentTags();
+                hidden.value = tags.join(', ');
+            }
+
+            function tagExists(ext) {
+                var tags = getCurrentTags();
+                return tags.indexOf(ext) !== -1;
+            }
+
+            function createTag(ext) {
+                if (!ext) return;
+                if (tagExists(ext)) return;
+
+                var span = document.createElement('span');
+                span.className = 'ext-tag label label-primary';
+                span.setAttribute('data-ext', ext);
+                span.style.display = 'inline-flex';
+                span.style.alignItems = 'center';
+                span.style.padding = '2px 6px';
+                span.style.margin = '1px';
+
+                var textSpan = document.createElement('span');
+                textSpan.className = 'ext-text';
+                textSpan.textContent = ext;
+
+                var removeSpan = document.createElement('span');
+                removeSpan.className = 'ext-remove';
+                removeSpan.textContent = '×';
+                removeSpan.style.cursor = 'pointer';
+                removeSpan.style.marginLeft = '4px';
+
+                removeSpan.addEventListener('click', function () {
+                    wrapper.removeChild(span);
+                    syncHiddenFromTags();
+                });
+
+                span.appendChild(textSpan);
+                span.appendChild(removeSpan);
+
+                wrapper.insertBefore(span, input);
+                syncHiddenFromTags();
+            }
+
+            // Handle remove clicks for tags that were rendered by Razor on page load
+            wrapper.addEventListener('click', function (e) {
+                var target = e.target;
+                // If they clicked directly on the "×"
+                if (target.classList.contains('ext-remove')) {
+                    var tag = target.closest('.ext-tag');
+                    if (tag && wrapper.contains(tag)) {
+                        wrapper.removeChild(tag);
+                        syncHiddenFromTags();
+                    }
+                }
+            });
+
+            // Initialize from existing tags
+            syncHiddenFromTags();
+
+            function handleAddFromInput() {
+                var raw = input.value;
+                if (!raw) return;
+
+                raw.split(',').forEach(function (part) {
+                    var v = normalizeExt(part);
+                    if (v) createTag(v);
+                });
+                input.value = '';
+            }
+
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    handleAddFromInput();
+                }
+                else if (e.key === 'Backspace' && !input.value) {
+                    var tags = wrapper.querySelectorAll('.ext-tag');
+                    if (tags.length > 0) {
+                        var last = tags[tags.length - 1];
+                        wrapper.removeChild(last);
+                        syncHiddenFromTags();
+                    }
+                }
+            });
+
+            input.addEventListener('blur', function () {
+                handleAddFromInput();
+            });
+
+            (function rebuildFromRawIfNeeded() {
+                if (!hidden.value) return;
+                var currentTags = getCurrentTags();
+                if (currentTags.length > 0) return;
+
+                hidden.value.split(',')
+                    .map(function (s) { return normalizeExt(s); })
+                    .filter(function (v) { return !!v; })
+                    .forEach(function (v) { createTag(v); });
+            })();
+        })();
+    </script>
+}
