@@ -1,0 +1,65 @@
+﻿@model BOBDrive.ViewModels.LoginViewModel
+@{
+    ViewBag.Title = "Log in";
+}
+
+<h2>@ViewBag.Title</h2>
+<div class="row">
+    <div class="col-md-8">
+        <section id="loginForm">
+            @using (Html.BeginForm("Login", "Account", new { ReturnUrl = ViewBag.ReturnUrl }, FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+            {
+                @Html.AntiForgeryToken()
+                <h4>Use your registered User ID and password to log in.</h4>
+                <hr />
+                @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+                <div class="form-group">
+                    @Html.LabelFor(m => m.UserId, new { @class = "col-md-2 control-label" })
+                    <div class="col-md-10">
+                        @Html.TextBoxFor(m => m.UserId, new { @class = "form-control" })
+                        @Html.ValidationMessageFor(m => m.UserId, "", new { @class = "text-danger" })
+                    </div>
+                </div>
+                <div class="form-group">
+                    @Html.LabelFor(m => m.Password, new { @class = "col-md-2 control-label" })
+                    <div class="col-md-10">
+                        @Html.PasswordFor(m => m.Password, new { @class = "form-control" })
+                        @Html.ValidationMessageFor(m => m.Password, "", new { @class = "text-danger" })
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-offset-2 col-md-10">
+                        <div class="checkbox">
+                            @Html.CheckBoxFor(m => m.RememberMe)
+                            @Html.LabelFor(m => m.RememberMe)
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-offset-2 col-md-10">
+                        <input type="submit" value="Log in" class="btn btn-primary" />
+                    </div>
+                </div>
+                
+            }
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+
+@* *** ADD THIS SCRIPT BLOCK *** *@
+@if (ViewBag.IsPickerLogin == true)
+{
+    <script type="text/javascript">
+            // This login page is part of the picker workflow for a new user.
+            // We must set the sessionStorage flag here, so that when the user
+            // is redirected to the main application after login, the security
+            // script in _Layout.cshtml recognizes the session as a legitimate picker.
+            sessionStorage.setItem('isBobDrivePickerPopup', 'true');
+    </script>
+}
+    @* *** END OF ADDED SCRIPT BLOCK *** *@
+
+}

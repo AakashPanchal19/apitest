@@ -1,0 +1,58 @@
+﻿@model IEnumerable<BOBDrive.Models.Department>
+@{
+    ViewBag.Title = "Departments";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Departments (Top-level)</h2>
+
+<p>
+    <a href="@Url.Action("CreateDepartment", "AdminDashboard")" class="btn btn-success">
+        <i class="glyphicon glyphicon-plus"></i> Create Department Hierarchy
+    </a>
+    <a href="@Url.Action("ManageDepartmentHierarchy", "AdminDashboard")" class="btn btn-info">
+        Manage Department Hierarchy (Bulk)
+    </a>
+</p>
+
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>Top-level Department</th>
+            <th>Data Monitor</th>
+            <th>Policies</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var d in Model)
+        {
+            <tr>
+                <td>@d.Name</td>
+                <td>
+                    @(d.User != null
+                        ? (d.User.FullName + " (" + d.User.ExternalUserId + ")")
+                        : "-")
+                </td>
+                <td>
+                    <small>
+                        Vis: @(d.IsVisibilityAllowed ? "Y" : "N") |
+                        Dnld: @(d.IsDownloadingAllowed ? "Y" : "N") |
+                        Zip: @(d.IsZippingAllowed ? "Y" : "N") |
+                        Share: @(d.IsSharingAllowed ? "Y" : "N") |
+                        ExtShare: @(d.IsExternalSharingAllowed ? "Y" : "N") |
+                        CopyCross: @(d.IsCopyFromOtherDriveAllowed ? "Y" : "N")
+                    </small>
+                </td>
+                <td>
+                    <a href="@Url.Action("ShowDepartmentTree", "AdminDashboard", new { id = d.Id })" class="btn btn-xs btn-primary">
+                        View Tree
+                    </a>
+                    <a href="@Url.Action("EditDepartment", "AdminDashboard", new { id = d.Id })" class="btn btn-xs btn-default">
+                        Edit
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

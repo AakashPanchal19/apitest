@@ -1,0 +1,161 @@
+﻿@model IEnumerable<BOBDrive.Models.User>
+@{
+    ViewBag.Title = "Pending Approvals";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Pending User Approvals</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success" id="success-banner">@TempData["SuccessMessage"]</div>
+}
+
+<div id="approvals-container">
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">No pending requests found.</div>
+    }
+    else
+    {
+        <table class="table table-striped" id="approvals-table">
+            <thead>
+                <tr>
+                    <th>User Name</th>
+                    <th>Requested Department</th>
+                    <th>Request Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="approvals-body">
+                @foreach (var user in Model)
+                {
+                    <tr data-user-id="@user.Id">
+                        <td>@user.FullName (@user.Username)</td>
+                        <td>@(user.Department != null ? user.Department.Name : "Unknown")</td>
+                        <td>@(user.CreatedAt.ToShortDateString())</td>
+                        <td>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-success btn-sm js-approve" data-user-id="@user.Id">
+                                    <i class="glyphicon glyphicon-ok"></i> Approve
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm js-reject" data-user-id="@user.Id">
+                                    <i class="glyphicon glyphicon-remove"></i> Reject
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@section scripts {
+    <script src="~/Scripts/jquery.signalR-2.4.3.min.js"></script>
+    <script src="~/signalr/hubs"></script>
+    <script>
+        (function () {
+            // SignalR: reuse existing AdminStatsHub
+            var hub = $.connection.adminStatsHub;
+
+            hub.client.approvalsChanged = function () {
+                refreshApprovals();
+            };
+
+            function refreshApprovals() {
+                $.ajax({
+                    url: '@Url.Action("PendingApprovalsPartial", "AdminDashboard")',
+                    cache: false
+                }).done(function (html) {
+                    $('#approvals-body').html(html);
+                    wireRowButtons(); // rebind after replacing rows
+                });
+            }
+
+            // Get anti-forgery token from a hidden input if present, or request a token field
+            function getAntiForgeryToken() {
+                var tokenInput = $('input[name="__RequestVerificationToken"]');
+                if (tokenInput.length) return tokenInput.val();
+                // Inject a token by requesting an empty form fragment
+                // Alternatively, render @Html.AntiForgeryToken() once at top of the page:
+                return '@Html.AntiForgeryToken()'.match(/value="([^"]+)"/)[1];
+            }
+
+            function postApprove(userId) {
+                if (window.GlobalLoading) GlobalLoading.show('Approving user...');
+                return $.ajax({
+                    url: '@Url.Action("ApproveUser", "AdminDashboard")',
+                    type: 'POST',
+                    data: {
+                        __RequestVerificationToken: getAntiForgeryToken(),
+                        userId: userId
+                    }
+                }).always(function () {
+                    if (window.GlobalLoading) GlobalLoading.hide();
+                });
+            }
+
+            function postReject(userId) {
+                if (window.GlobalLoading) GlobalLoading.show('Rejecting user...');
+                return $.ajax({
+                    url: '@Url.Action("RejectUser", "AdminDashboard")',
+                    type: 'POST',
+                    data: {
+                        __RequestVerificationToken: getAntiForgeryToken(),
+                        userId: userId
+                    }
+                }).always(function () {
+                    if (window.GlobalLoading) GlobalLoading.hide();
+                });
+            }
+
+            function wireRowButtons() {
+                $('.js-approve').off('click').on('click', function () {
+                    var userId = $(this).data('user-id');
+                    postApprove(userId)
+                        .done(function (res) {
+                            // Optimistically refresh rows (also SignalR will broadcast)
+                            refreshApprovals();
+                            showBanner(res && res.message ? res.message : 'User approved.');
+                        })
+                        .fail(function () {
+                            showBanner('Approve failed. Please retry.', true);
+                        });
+                });
+
+                $('.js-reject').off('click').on('click', function () {
+                    if (!confirm('Reject this request? The user will have to select a department again.')) return;
+
+                    var userId = $(this).data('user-id');
+                    postReject(userId)
+                        .done(function (res) {
+                            refreshApprovals();
+                            showBanner(res && res.message ? res.message : 'User rejected.');
+                        })
+                        .fail(function () {
+                            showBanner('Reject failed. Please retry.', true);
+                        });
+                });
+            }
+
+            function showBanner(message, isError) {
+                var $b = $('#success-banner');
+                if ($b.length === 0) {
+                    $b = $('<div id="success-banner" class="alert"></div>').prependTo('#approvals-container');
+                }
+                $b.toggleClass('alert-success', !isError)
+                  .toggleClass('alert-danger', !!isError)
+                  .text(message)
+                  .show();
+                setTimeout(function () { $b.fadeOut(); }, 4000);
+            }
+
+            // Initial bindings
+            wireRowButtons();
+
+            // Start SignalR connection
+            $.connection.hub.start();
+        })();
+    </script>
+}

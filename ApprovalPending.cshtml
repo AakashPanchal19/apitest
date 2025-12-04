@@ -1,0 +1,12 @@
+﻿@model BOBDrive.Models.Department
+@{ ViewBag.Title = "Approval Pending"; }
+
+<div class="alert alert-warning">
+    <h3>Approval Pending</h3>
+    <p>You have requested access to the <strong>@Model.Name</strong> department.</p>
+
+    <!-- CORRECTED: Using 'User' instead of 'DataMonitor' and C# 5 compatible null check -->
+    <p>Please wait for the Data Monitor (@(Model.User != null ? Model.User.FullName : "Admin")) to approve your request.</p>
+
+    <a href="javascript:document.getElementById('logoutForm').submit()">Log off</a>
+</div>

@@ -1,0 +1,86 @@
+@model IEnumerable<BOBDrive.Models.Department>
+@{
+    ViewBag.Title = "Departments (Top-level)";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Top-level Departments</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<p>
+    <a href="@Url.Action("CreateDepartment", "AdminDashboard")" class="btn btn-success">
+        <i class="glyphicon glyphicon-plus"></i> Create Department Hierarchy
+    </a>
+    <a href="@Url.Action("ManageDepartmentHierarchy", "AdminDashboard")" class="btn btn-info">
+        Manage Department Hierarchy (Bulk)
+    </a>
+</p>
+
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>Top-level Department</th>
+            <th>Data Monitor</th>
+            <th>Policies</th>
+            <th style="width:280px;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model != null && Model.Any())
+        {
+            foreach (var d in Model)
+            {
+                <tr>
+                    <td>@Html.Encode(d.Name)</td>
+                    <td>
+                        @(d.User != null ? Html.Encode(d.User.FullName + " (" + d.User.ExternalUserId + ")") : "-")
+                    </td>
+                    <td>
+                        <small>
+                            Vis: @(d.IsVisibilityAllowed ? "Y" : "N") |
+                            Dnld: @(d.IsDownloadingAllowed ? "Y" : "N") |
+                            Zip: @(d.IsZippingAllowed ? "Y" : "N") |
+                            Share: @(d.IsSharingAllowed ? "Y" : "N") |
+                            ExtShare: @(d.IsExternalSharingAllowed ? "Y" : "N") |
+                            CopyCross: @(d.IsCopyFromOtherDriveAllowed ? "Y" : "N")
+                        </small>
+                    </td>
+                    <td>
+                        <a href="@Url.Action("ShowDepartmentTree", "AdminDashboard", new { id = d.Id })" class="btn btn-xs btn-primary">
+                            View Tree
+                        </a>
+
+                        @* Inline Add Child form for top-level department *@
+                        @using (Html.BeginForm("CreateChild", "AdminDashboard", FormMethod.Post, new { @class = "form-inline add-child-form", role = "form", style = "display:inline-block; margin-left:6px;" }))
+                        {
+                            @Html.AntiForgeryToken()
+                            @Html.Hidden("parentId", d.Id)
+                            <div class="form-group" style="display:inline-block; margin-right:6px;">
+                                <input type="text" name="childName" placeholder="New child name" class="form-control input-sm child-name-input" style="width:140px;" required="required" />
+                            </div>
+                            <button type="submit" class="btn btn-xs btn-success" title="Add Child">Add Child</button>
+                        }
+
+                        <a href="@Url.Action("EditDepartment", "AdminDashboard", new { id = d.Id })" class="btn btn-xs btn-default" style="margin-left:6px;">
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="4" class="text-muted">No top-level departments found.</td>
+            </tr>
+        }
+    </tbody>
+</table>

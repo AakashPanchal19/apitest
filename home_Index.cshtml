@@ -1,0 +1,3661 @@
+﻿@model BOBDrive.ViewModels.HomeViewModel
+@{
+    ViewBag.Title = "My Drive";
+
+    var currentUserId = (int)(ViewBag.CurrentUserId ?? 0);
+    var isUserInHisOwnFolder = Model.CurrentFolder != null && Model.CurrentFolder.OwnerUserId == currentUserId;
+
+    // Department policy flags
+    var policy = ViewBag.DepartmentPolicy as BOBDrive.Models.Department;
+    var canDownload = policy == null || policy.IsDownloadingAllowed;
+    var canZip = policy == null || policy.IsZippingAllowed;
+
+    // Split internal vs external sharing and combine for UI visibility
+    var canShareInternal = policy == null || policy.IsSharingAllowed;
+    var canShareExternal = policy == null || policy.IsExternalSharingAllowed;
+    var canShare = canShareInternal || canShareExternal;
+
+    var canCrossDriveCopy = policy == null || policy.IsCopyFromOtherDriveAllowed;
+}
+<!-- Department Policy Seed -->
+<script type="application/json" id="dept-policy-json">
+@Html.Raw(System.Web.Helpers.Json.Encode(new {
+    canDownload,
+    canZip,
+    canShare,           // any of internal/external
+    canShareInternal,
+    canShareExternal,
+    canCrossDriveCopy
+}))
+</script>
+<script>
+    (function () {
+        try {
+            window.deptPolicy = JSON.parse(document.getElementById('dept-policy-json').textContent);
+        } catch { window.deptPolicy = {}; }
+    })();
+</script>
+
+<!-- Allowed Extensions Seed -->
+<script type="application/json" id="allowed-exts-json">
+@Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(
+    (Model.AllowedExtensions ?? new List<string>())
+        .Select(x => x.ToLowerInvariant())
+        .ToList()
+))
+</script>
+<script>
+    (function () {
+        try {
+            window.BOB_ALLOWED_EXTENSIONS = JSON.parse(document.getElementById('allowed-exts-json').textContent);
+        } catch { window.BOB_ALLOWED_EXTENSIONS = []; }
+    })();
+</script>
+
+<input type="hidden" id="isCurrentUserInOwnFolder" value="@isUserInHisOwnFolder.ToString().ToLower()" />
+@Styles.Render("~/Content/uppy/uppy.min.css")
+<link rel="stylesheet" href="@Url.Content("~/Content/TusUpload.css")" />
+@Html.AntiForgeryToken()
+
+<div id="ongoing-processes-section">
+    @if (Model.OngoingUploads != null && Model.OngoingUploads.Any())
+    {
+        <div class="panel panel-warning" id="upload-recovery-panel">
+            <div class="panel-heading">
+                <h3 class="panel-title"><i class="glyphicon glyphicon-exclamation-sign"></i> Upload Recovery</h3>
+            </div>
+            <div class="panel-body">
+                <p>The following file uploads were interrupted. You can monitor their recovery or retry them if they have failed.</p>
+                @foreach (var file in Model.OngoingUploads)
+                {
+                    <div class="ongoing-process-item" data-zip-id="@file.Id" style="margin-bottom:20px;border-bottom:1px solid #eee;padding-bottom:10px;">
+                        <p style="margin-bottom:5px;">
+                            <strong>File:</strong> @(file.Name ?? "Unknown")<br />
+                            <small>Status: <span class="status-text">@(file.FinalizationStage ?? "Processing")</span></small>
+                        </p>
+                        <div class="progress" style="margin-bottom:5px;height:15px;">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width:@( string.Format("{0}%", file.ProcessingProgress < 0 ? 100 : file.ProcessingProgress) );">
+                                @if (file.ProcessingProgress >= 0)
+                                {
+                                    @:Processing: @(file.ProcessingProgress)%
+                                }
+                                else
+                                {
+                                    @:Error
+                                }
+                            </div>
+                        </div>
+                        <div class="controls">
+                            <span class="retry-message small text-muted"></span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<div id="zipping-process-panel" class="panel panel-info" style="@(Model.OngoingZippingJobs != null && Model.OngoingZippingJobs.Any() ? "" : "display:none;")">
+    <div class="panel-heading">
+        <h3 class="panel-title"><i class="glyphicon glyphicon-folder-close"></i> Background File Processing</h3>
+    </div>
+    <div class="panel-body">
+        @if (Model.OngoingZippingJobs != null && Model.OngoingZippingJobs.Any())
+        {
+            foreach (var file in Model.OngoingZippingJobs)
+            {
+                <div class="ongoing-process-item" data-zip-id="@file.Id" style="margin-bottom:20px;border-bottom:1px solid #eee;padding-bottom:10px;">
+                    <p style="margin-bottom:5px;">
+                        <strong>File:</strong> @(file.Name ?? "Unknown")<br />
+                        <small>Status: <span class="status-text">@(file.FinalizationStage ?? "Processing")</span></small>
+                    </p>
+                    <div class="progress-bar" role="progressbar"
+                         style="width:@( string.Format("{0}%", file.ProcessingProgress < 0 ? 100 : file.ProcessingProgress) );">
+                        @if (file.ProcessingProgress >= 0)
+                        {
+                            @:Processing: @(file.ProcessingProgress)%
+                        }
+                        else
+                        {
+                            @:Error
+                        }
+                    </div>
+                    <div class="controls">
+                        <span class="retry-message small text-muted"></span>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<style>
+    #clipboardContextMenu {
+        position: absolute;
+        z-index: 20000;
+        display: none;
+        min-width: 170px;
+        background: #fff;
+        border: 1px solid #ccc;
+        box-shadow: 2px 2px 6px rgba(0,0,0,.2);
+        padding: 4px 0;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+        #clipboardContextMenu ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #clipboardContextMenu li {
+            padding: 6px 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+            #clipboardContextMenu li:hover {
+                background: #f5f5f5;
+            }
+
+            #clipboardContextMenu li.disabled {
+                color: #aaa;
+                cursor: default;
+            }
+
+    tr.folder-row.folder-selected {
+        background-color: #f5f9ff;
+    }
+
+    #busyOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1040 !important;
+        display: none;
+        background: rgba(255,255,255,0.85);
+        align-items: center;
+        justify-content: center;
+        font-family: Segoe UI,Arial,sans-serif;
+    }
+
+    #busyBox {
+        width: 480px;
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.25);
+        padding: 18px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    #busyTitle {
+        font-weight: 600;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #busyDetail {
+        font-size: 13px;
+        color: #444;
+        min-height: 18px;
+    }
+
+    #busyCounts {
+        font-size: 12px;
+        color: #666;
+    }
+
+    #busyBottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    #busyCancel {
+        font-size: 12px;
+    }
+
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #ccc;
+        border-top-color: #0078d4;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    #dupOverlay, #resumeOverlay, #resumeDupOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: none;
+        z-index: 1060;
+        font-family: Segoe UI,Arial,sans-serif;
+    }
+
+    #dupDialog, #resumeDialog, #resumeDupDialog {
+        max-width: 600px;
+        margin: 7% auto;
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 12px 30px rgba(0,0,0,.25);
+        overflow: hidden;
+        font-size: 14px;
+    }
+
+        #dupDialog > div:first-child, #resumeDialog > div:first-child, #resumeDupDialog > div:first-child {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eee;
+            font-size: 16px;
+            font-weight: 600;
+            background: #fafafa;
+        }
+
+        #dupDialog .body, #resumeDialog .body, #resumeDupDialog .body {
+            padding: 16px;
+            line-height: 1.5;
+        }
+
+        #dupDialog .footer, #resumeDialog .footer, #resumeDupDialog .footer {
+            padding: 12px 16px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            background: #fafafa;
+        }
+
+    #uppyDashboard {
+        margin-top: 10px;
+    }
+
+    #uppyLog {
+        margin-top: 14px;
+        font-family: Consolas,monospace;
+        font-size: 12px;
+        max-height: 260px;
+        overflow: auto;
+        background: #f8f9fa;
+        border: 1px solid #e3e5e7;
+        padding: 8px;
+        border-radius: 4px;
+    }
+</style>
+
+<div id="clipboardContextMenu">
+    <ul>
+        <li id="cmCopy">⧉ Copy</li>
+        <li id="cmCut">✂ Cut</li>
+        <li id="cmPaste" class="disabled">⬇ Paste</li>
+        <li id="cmRename">✎ Rename</li>
+        <li id="cmDelete" class="text-danger">🗑 Delete</li>
+        <li id="cmCancel">⨯ Cancel</li>
+        @if (canShare)
+        {
+            <li id="cmShare">Share</li>
+        }
+        @if (canZip)
+        {
+            <li id="cmZipSelected" class="zip-context-item">Zip Selected</li>
+        }
+    </ul>
+</div>
+
+<div id="fileTooBigPanel" class="panel panel-danger" style="display:none;">
+    <div class="panel-heading"><h3 class="panel-title">File is Too Large</h3></div>
+    <div class="panel-body">
+        <p>The selected file exceeds the 1 GB limit for this window.</p>
+        <p>To upload larger files, open the full BOBDrive application.</p>
+        <a href="@Url.Action("Index","Home", new { picker = (bool?)null })" target="_blank" class="btn btn-primary">Open BOBDrive</a>
+    </div>
+</div>
+
+<div class="container" style="margin-top:20px;">
+    <div class="panel panel-default">
+        <div class="panel-heading"><strong>Select and Upload</strong></div>
+        <div class="panel-body">
+            <div class="row" style="margin-bottom:10px;">
+                <div class="col-sm-12" style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" id="selectAndUploadBtn" class="btn btn-primary">
+                        <i class="glyphicon glyphicon-folder-open"></i> Select Folder (prepare + upload)
+                    </button>
+                    <input type="file" id="folderInput" webkitdirectory directory mozdirectory multiple style="display:none;" />
+                </div>
+            </div>
+            <div id="uppyDashboard"></div>
+            <div id="uppyLog" aria-live="polite"></div>
+        </div>
+    </div>
+</div>
+
+<div id="busyOverlay" role="dialog" aria-live="polite" aria-busy="true">
+    <div id="busyBox">
+        <div id="busyTitle"><span class="spinner"></span><span id="busyTitleText">Preparing…</span></div>
+        <div id="busyDetail">Please wait…</div>
+        <div class="progress" style="height:8px;margin:4px 0 2px;">
+            <div id="busyBar" class="progress-bar" style="width:0%;transition:width .1s;"></div>
+        </div>
+        <div id="busyCounts"></div>
+        <div id="busyBottom">
+            <div style="font-size:11px;color:#666;">Do not close your browser…</div>
+            <button id="busyCancel" type="button" class="btn btn-xs btn-default" style="display:none;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Duplicate / Resume dialogs -->
+<div id="dupOverlay" role="dialog" aria-modal="true">
+    <div id="dupDialog">
+        <div>Duplicate file detected</div>
+        <div class="body">
+            <div id="dupDesc" style="margin-bottom:12px;"></div>
+            <ul style="margin:0 0 12px 20px;padding:0;font-size:12.5px;">
+                <li><strong>Skip</strong>: Do not upload.</li>
+                <li><strong>Duplicate Copy</strong>: Create DB reference.</li>
+                <li><strong>Upload anyway</strong>: New physical copy.</li>
+            </ul>
+            <label style="display:flex;gap:6px;align-items:center;font-size:12.5px;">
+                <input id="dupApplyAll" type="checkbox" /> Apply to all duplicates
+            </label>
+        </div>
+        <div class="footer">
+            <button id="dupSkipBtn" class="btn btn-default btn-sm">Skip</button>
+            <button id="dupLinkBtn" class="btn btn-info btn-sm">Duplicate Copy</button>
+            <button id="dupUploadBtn" class="btn btn-primary btn-sm">Upload anyway</button>
+        </div>
+    </div>
+</div>
+
+<div id="resumeOverlay" role="dialog" aria-modal="true">
+    <div id="resumeDialog">
+        <div>Resume incomplete upload</div>
+        <div class="body">
+            <div id="resumeDesc" style="margin-bottom:12px;"></div>
+            <ul style="margin:0 0 12px 20px;padding:0;font-size:12.5px;">
+                <li><strong>Resume</strong>: Continue remaining bytes.</li>
+                <li><strong>Fresh Upload</strong>: Start over.</li>
+            </ul>
+            <label style="display:flex;gap:6px;align-items:center;font-size:12.5px;">
+                <input id="resumeApplyAll" type="checkbox" /> Apply to all resumable
+            </label>
+        </div>
+        <div class="footer">
+            <button id="resumeFreshBtn" class="btn btn-default btn-sm">Fresh Upload</button>
+            <button id="resumeResumeBtn" class="btn btn-primary btn-sm">Resume</button>
+        </div>
+    </div>
+</div>
+
+<div id="resumeDupOverlay" role="dialog" aria-modal="true">
+    <div id="resumeDupDialog">
+        <div>Existing upload found</div>
+        <div class="body">
+            <div id="resumeDupDesc" style="margin-bottom:12px;"></div>
+            <ul style="margin:0 0 12px 20px;padding:0;font-size:12.5px;">
+                <li><strong>Skip</strong>: Do not upload.</li>
+                <li><strong>Duplicate Copy</strong>: Reference existing file.</li>
+                <li><strong>Resume</strong>: Continue partial upload.</li>
+                <li><strong>Upload anyway</strong>: New physical copy.</li>
+            </ul>
+            <label style="display:flex;gap:6px;align-items:center;font-size:12.5px;">
+                <input id="resumeDupApplyAll" type="checkbox" /> Apply to all matching cases
+            </label>
+        </div>
+        <div class="footer">
+            <button id="resumeDupSkipBtn" class="btn btn-default btn-sm">Skip</button>
+            <button id="resumeDupLinkBtn" class="btn btn-info btn-sm">Duplicate Copy</button>
+            <button id="resumeDupResumeBtn" class="btn btn-success btn-sm">Resume</button>
+            <button id="resumeDupUploadBtn" class="btn btn-primary btn-sm">Upload anyway</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createFolderModal" tabindex="-1" role="dialog" aria-labelledby="createFolderModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title" id="createFolderModalLabel">Create New Folder</h4>
+            </div>
+            <div class="modal-body">
+                <form id="createFolderForm" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="newFolderName">Folder Name</label>
+                        <input type="text" id="newFolderName" class="form-control" required />
+                    </div>
+                    <div id="createFolderError" class="text-danger" style="margin-top:10px;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createFolderBtnModal">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="button" id="emptyBinButton" class="btn btn-danger">
+    <i class="glyphicon glyphicon-trash"></i> Empty Bin
+</button>
+
+@if (canZip)
+{
+    <div class="modal fade" id="zipFilesModal" tabindex="-1" role="dialog" aria-labelledby="zipFilesModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    <h4 class="modal-title" id="zipFilesModalLabel">Create ZIP from Selected Files</h4>
+                </div>
+                <div class="modal-body">
+                    <p><span id="zipFileCount"></span> file(s)/folder(s) will be added.</p>
+                    <div class="form-group">
+                        <label for="zipFileName">ZIP File Name (Optional)</label>
+                        <input type="text" id="zipFileName" class="form-control" placeholder="e.g., MyArchive.zip" />
+                    </div>
+                    <div id="zipFilesError" class="text-danger" style="margin-top:10px;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="createZipBtnModal">Create ZIP</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="modal fade" id="shareModal" tabindex="-1" role="dialog" aria-labelledby="shareModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title" id="shareModalLabel">Share File: <strong id="shareModalFileName"></strong></h4>
+            </div>
+            <div class="modal-body">
+                <form id="shareLinkForm" onsubmit="return false;">
+                    <div id="shareFormInputs">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" id="shareFileIdModal" name="FileId" />
+                        <div class="form-group">
+                            <label>Share With</label>
+                            <div>
+                                <label class="radio-inline"><input type="radio" name="ShareScope" value="Organization" checked /> Within Organization</label>
+                                <label class="radio-inline"><input type="radio" name="ShareScope" value="Public" /> Outside Organization</label>
+                            </div>
+                            <small class="help-block" id="shareScopeHelp">Requires users to log in to BOBDrive.</small>
+                        </div>
+                        <div id="internalOptionsSection">
+                            <div class="form-group" id="recipientUserIdsSection">
+                                <label for="shareRecipientUserIds">Restrict to User IDs (Optional)</label>
+                                <textarea id="shareRecipientUserIds" name="RecipientUserIds" class="form-control" rows="3"></textarea>
+                                <small class="help-block">Only these users will be able to access.</small>
+                            </div>
+                        </div>
+                        <div id="publicOptionsSection" style="display:none;">
+                            <div class="form-group">
+                                <div class="checkbox">
+                                    <label><input type="checkbox" id="restrictToEmailsCheckbox" /> Restrict to specific email addresses</label>
+                                </div>
+                            </div>
+                            <div class="form-group" id="recipientEmailsSection" style="display:none;">
+                                <label for="shareRecipientEmails">Recipient Email Addresses</label>
+                                <textarea id="shareRecipientEmails" name="RecipientEmails" class="form-control" rows="3"></textarea>
+                                <small class="help-block">Only these emails will be able to access.</small>
+                            </div>
+                        </div>
+                        <div class="form-group" id="passwordSectionContainer">
+                            <div class="checkbox">
+                                <label><input type="checkbox" id="protectLinkCheckbox" checked /> Protect link with password</label>
+                            </div>
+                            <div id="sharePasswordInputContainer" style="margin-top:5px;">
+                                <input type="text" id="sharePasswordModal" name="Password" class="form-control" placeholder="Leave blank to auto-generate" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="shareExpiryModal">Link Expiration</label>
+                            <select id="shareExpiryModal" name="ExpiryOption" class="form-control">
+                                <option value="never" selected>Never</option>
+                                <option value="1y">1 Year</option>
+                                <option value="6m">6 Months</option>
+                                <option value="1m">1 Month</option>
+                                <option value="1w">1 Week</option>
+                                <option value="1d">1 Day</option>
+                                <option value="12h">12 Hours</option>
+                                <option value="1h">1 Hour</option>
+                                <option value="30min">30 Minutes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="shareStatusMessage" class="alert" style="display:none;margin-top:10px;"></div>
+                    <div id="generatedLinkContainer" style="display:none;margin-top:15px;">
+                        <label>Generated Link:</label>
+                        <div class="input-group">
+                            <input type="text" id="generatedLinkText" class="form-control" readonly />
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="button" id="copyLinkBtn">Copy</button>
+                            </span>
+                        </div>
+                    </div>
+                    <div id="generatedPasswordContainer" style="display:none;margin-top:10px;">
+                        <label>Link Password:</label>
+                        <div class="input-group">
+                            <input type="text" id="generatedPasswordText" class="form-control" readonly style="background:white;" />
+                            <span class="input-group-btn">
+                                <button class="btn btn-default copy-password-btn" type="button" title="Copy Password">
+                                    <i class="glyphicon glyphicon-copy"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="shareModalCancelBtn" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createShareLinkBtnModal">Create Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container" style="margin-top:20px;">
+    <h2>@ViewBag.Title</h2>
+    <hr />
+    <div id="main-content-panel">
+        @if (isUserInHisOwnFolder)
+        {
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-8">
+                            <form id="chunkUploadForm" onsubmit="return false;">
+                                <input type="hidden" id="uploadFolderId" name="folderId" value="@(Model.CurrentFolder != null ? Model.CurrentFolder.Id : 0)" />
+                            </form>
+                        </div>
+                        <div class="col-sm-4 text-right">
+                            <label>Folder Actions</label><br />
+                            @if (canShare)
+                            {
+                                <button type="button" id="shareSelectedButton" class="btn btn-info" style="display:none;">
+                                    <i class="glyphicon glyphicon-share"></i> @(Model.IsPickerModel ? "Select All" : "Share Selected")
+                                </button>
+                            }
+                            @if (canZip)
+                            {
+                                <button type="button" id="zipSelectedButton" class="btn btn-primary" style="display:none;">
+                                    <i class="glyphicon glyphicon-folder-close"></i> Zip Selected
+                                </button>
+                            }
+                            <button type="button" id="createFolderButton" class="btn btn-primary">
+                                <i class="glyphicon glyphicon-plus"></i> Create Folder
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="row">
+            <div class="col-md-4">
+                <h4>All Drives</h4>
+                <div class="list-group">
+                    @foreach (var folder in Model.AllRootFolders)
+                    {
+                        var activeClass = (Model.CurrentFolder != null && Model.CurrentFolder.Id == folder.Id) ? "active" : "";
+                        <a href="@Url.Action("Index", "Home", new { folderId = folder.Id })"
+                           class="list-group-item folder-row @activeClass"
+                           data-folderid="@folder.Id">
+                            <i class="glyphicon glyphicon-hdd"></i> @folder.Name
+                            @if (Model.UserRootFolder != null && folder.Id == Model.UserRootFolder.Id)
+                            {
+                                <span class="badge">My Drive</span>
+                            }
+                        </a>
+                    }
+                </div>
+            </div>
+            <div class="col-md-8">
+                <h4>Contents of: <span id="currentFolderNameHeader">@(Model.CurrentFolder != null ? Model.CurrentFolder.Name : "All Drives")</span></h4>
+                <div id="folderContentsWrapper">
+                    @if (Model.CurrentFolder == null)
+                    {
+                        <div class="alert alert-info">Select a drive from the left to view its contents.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pasteModal" tabindex="-1" role="dialog" aria-labelledby="pasteModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title" id="pasteModalLabel">Paste Items</h4>
+            </div>
+            <div class="modal-body">
+                <p id="pasteSummary"></p>
+                <div class="form-group">
+                    <label>Destination Folder</label>
+                    <input type="text" class="form-control" id="pasteDestinationName" readonly />
+                </div>
+                <div id="pasteWarning" class="alert alert-warning" style="display:none;"></div>
+                <div id="pasteProgress" style="display:none;">
+                    <p><em>Processing...</em></p>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-info progress-bar-striped active" style="width:100%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" id="pasteButtons">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="pasteConfirmBtn">
+                    <i class="glyphicon glyphicon-ok"></i> Paste
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="renameModal" tabindex="-1" role="dialog" aria-labelledby="renameModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                <h4 class="modal-title" id="renameModalLabel">Rename</h4>
+            </div>
+            <div class="modal-body">
+                <form id="renameForm" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="renameNewName">New Name</label>
+                        <input type="text" class="form-control" id="renameNewName" autocomplete="off" />
+                        <input type="hidden" id="renameTargetType" />
+                        <input type="hidden" id="renameTargetId" />
+                    </div>
+                    <div id="renameError" class="text-danger" style="display:none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="renameConfirmBtn">
+                    <i class="glyphicon glyphicon-floppy-disk"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div id="actionFeedback"
+        style="position:fixed; top:15px; right:15px; z-index:30000; width:280px;">
+
+</div>
+
+
+
+<script src="@Url.Content("~/Scripts/crypto-js.min.js")"></script>
+
+@section scripts {
+    @Scripts.Render("~/bundles/uppy")
+    <script src="@Url.Content("~/Scripts/crypto-js.min.js")"></script>
+
+    <script>
+    (function(){
+        // ================== CONFIG CONSTANTS ==================
+        var SAMPLE_COUNT = 8,
+            SAMPLE_PCT   = 0.02,
+            LARGE_THRESHOLD = 1024 * 1024 * 1024; // 1 GiB sampling threshold
+
+        var TUS_ENDPOINT='@Url.Content("~/tus")'.replace(/\/$/,'');
+
+        function antiforgery(){
+            var el=document.querySelector('input[name="__RequestVerificationToken"]');
+            return (el && el.value) || '';
+        }
+
+        function log(m){
+            var div=document.getElementById('uppyLog');
+            if(!div) return;
+            var ts=new Date().toLocaleTimeString();
+            var el=document.createElement('div');
+            el.textContent='['+ts+'] '+m;
+            div.appendChild(el);
+            div.scrollTop=div.scrollHeight;
+        }
+
+        function newGuid(){
+            var s4=function(){ return Math.floor((1+Math.random())*0x10000).toString(16).substring(1); };
+            return s4()+s4()+'-'+s4()+'-'+s4()+'-'+s4()+'-'+s4()+s4()+s4();
+        }
+
+        // ================== BUSY OVERLAY HELPERS ==================
+        var aborted = false;
+
+        if (!window.deptPolicy.canZip) $('#zipSelectedButton').hide();
+        if (!window.deptPolicy.canShare) $('#shareSelectedButton').hide();
+
+        function showBusy(t,d,o){
+            aborted=false;
+            document.getElementById('busyTitleText').textContent=t||'Working…';
+            document.getElementById('busyDetail').textContent=d||'';
+            document.getElementById('busyCounts').textContent='';
+            document.getElementById('busyBar').style.width='0%';
+            var btn=document.getElementById('busyCancel');
+            btn.style.display=o&&o.cancelable?'':'none';
+            btn.onclick=function(){ aborted=true; };
+            document.getElementById('busyOverlay').style.display='flex';
+        }
+
+        function updateBusy(detail,percent,counts){
+            if(typeof detail==='string') document.getElementById('busyDetail').textContent=detail;
+            if(typeof percent==='number'){
+                var p=Math.max(0,Math.min(100,percent));
+                requestAnimationFrame(function(){
+                    document.getElementById('busyBar').style.width=p+'%';
+                });
+            }
+            if(typeof counts==='string') document.getElementById('busyCounts').textContent=counts;
+        }
+
+        function hideBusy(){
+            var ov=document.getElementById('busyOverlay');
+            if(ov) ov.style.display='none';
+        }
+
+        function rafYield(){
+            return new Promise(function(r){ requestAnimationFrame(r); });
+        }
+
+        function microYield(){
+            return new Promise(function(r){ setTimeout(r,0); });
+        }
+
+
+        // ================== UPLOAD SPEED TRACKING ==================
+        var lastProgressSnapshot = null; // { time: ms, bytesUploaded: number }
+        var uploadSpeedInfo = {
+            instantBps: 0,
+            avgBps: 0,
+            bytesUploaded: 0,
+            bytesTotal: 0,
+            startedAt: null
+        };
+
+        function formatSpeed(bps) {
+            if (!bps || bps <= 0) return '0 B/s';
+            var kbps = bps / 1024;
+            var mbps = kbps / 1024;
+            if (mbps >= 1) return mbps.toFixed(2) + ' MB/s';
+            if (kbps >= 1) return kbps.toFixed(1) + ' KB/s';
+            return bps.toFixed(0) + ' B/s';
+        }
+
+
+        // ================== PERSISTENT HASH CACHE (localStorage with expiry) ==================
+        var CACHE_VERSION = 'v2';
+        var CACHE_EXPIRY_DAYS = 30; // Keep hashes for 30 days
+        var CACHE_MAX_ENTRIES = 1000; // Limit to prevent localStorage overflow
+
+        // Initialize sample hash cache
+        var sampleHashCache = (function(){
+            try{
+                var raw = localStorage.getItem('bd_sample_hash_cache_' + CACHE_VERSION);
+                if(!raw) return {};
+                var cache = JSON.parse(raw);
+                var now = Date.now();
+                var cleaned = {};
+                var count = 0;
+
+                // Clean expired entries and limit size
+                Object.keys(cache).forEach(function(key){
+                    if(cache[key].timestamp){
+                        var age = now - cache[key].timestamp;
+                        if(age < CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000 && count < CACHE_MAX_ENTRIES){
+                            cleaned[key] = cache[key];
+                            count++;
+                        }
+                    }
+                });
+
+                log('Sample hash cache loaded: ' + count + ' entries');
+                return cleaned;
+            }catch(e){
+                log('Failed to load sample hash cache: ' + e.message);
+                return {};
+            }
+        })();
+
+        // Initialize full hash cache
+        var fullHashCache = (function(){
+            try{
+                var raw = localStorage.getItem('bd_full_hash_cache_' + CACHE_VERSION);
+                if(!raw) return {};
+                var cache = JSON.parse(raw);
+                var now = Date.now();
+                var cleaned = {};
+                var count = 0;
+
+                // Clean expired entries and limit size
+                Object.keys(cache).forEach(function(key){
+                    if(cache[key].timestamp){
+                        var age = now - cache[key].timestamp;
+                        if(age < CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000 && count < CACHE_MAX_ENTRIES){
+                            cleaned[key] = cache[key];
+                            count++;
+                        }
+                    }
+                });
+
+                log('Full hash cache loaded: ' + count + ' entries');
+                return cleaned;
+            }catch(e){
+                log('Failed to load full hash cache: ' + e.message);
+                return {};
+            }
+        })();
+
+        function persistSampleHashCache(){
+            try{
+                // Sort by timestamp (keep most recent if we hit limits)
+                var entries = Object.keys(sampleHashCache).map(function(key){
+                    return { key: key, data: sampleHashCache[key] };
+                }).sort(function(a, b){
+                    return (b.data.timestamp || 0) - (a.data.timestamp || 0);
+                }).slice(0, CACHE_MAX_ENTRIES);
+
+                var trimmed = {};
+                entries.forEach(function(entry){
+                    trimmed[entry.key] = entry.data;
+                });
+
+                localStorage.setItem('bd_sample_hash_cache_' + CACHE_VERSION, JSON.stringify(trimmed));
+            }catch(e){
+                // Handle quota exceeded
+                if(e.name === 'QuotaExceededError' || e.code === 22){
+                    log('localStorage quota exceeded. Clearing old sample hashes...');
+                    try{
+                        // Keep only most recent 100 entries
+                        var recent = Object.keys(sampleHashCache).map(function(key){
+                            return { key: key, data: sampleHashCache[key] };
+                        }).sort(function(a, b){
+                            return (b.data.timestamp || 0) - (a.data.timestamp || 0);
+                        }).slice(0, 100);
+
+                        sampleHashCache = {};
+                        recent.forEach(function(entry){
+                            sampleHashCache[entry.key] = entry.data;
+                        });
+
+                        localStorage.setItem('bd_sample_hash_cache_' + CACHE_VERSION, JSON.stringify(sampleHashCache));
+                        log('Sample cache trimmed to 100 entries');
+                    }catch(e2){
+                        log('Failed to trim sample cache: ' + e2.message);
+                    }
+                }else{
+                    log('Failed to persist sample hash cache: ' + e.message);
+                }
+            }
+        }
+
+        function persistFullHashCache(){
+            try{
+                // Sort by timestamp (keep most recent if we hit limits)
+                var entries = Object.keys(fullHashCache).map(function(key){
+                    return { key: key, data: fullHashCache[key] };
+                }).sort(function(a, b){
+                    return (b.data.timestamp || 0) - (a.data.timestamp || 0);
+                }).slice(0, CACHE_MAX_ENTRIES);
+
+                var trimmed = {};
+                entries.forEach(function(entry){
+                    trimmed[entry.key] = entry.data;
+                });
+
+                localStorage.setItem('bd_full_hash_cache_' + CACHE_VERSION, JSON.stringify(trimmed));
+            }catch(e){
+                // Handle quota exceeded
+                if(e.name === 'QuotaExceededError' || e.code === 22){
+                    log('localStorage quota exceeded. Clearing old full hashes...');
+                    try{
+                        // Keep only most recent 100 entries
+                        var recent = Object.keys(fullHashCache).map(function(key){
+                            return { key: key, data: fullHashCache[key] };
+                        }).sort(function(a, b){
+                            return (b.data.timestamp || 0) - (a.data.timestamp || 0);
+                        }).slice(0, 100);
+
+                        fullHashCache = {};
+                        recent.forEach(function(entry){
+                            fullHashCache[entry.key] = entry.data;
+                        });
+
+                        localStorage.setItem('bd_full_hash_cache_' + CACHE_VERSION, JSON.stringify(fullHashCache));
+                        log('Full cache trimmed to 100 entries');
+                    }catch(e2){
+                        log('Failed to trim full cache: ' + e2.message);
+                    }
+                }else{
+                    log('Failed to persist full hash cache: ' + e.message);
+                }
+            }
+        }
+
+        function makeFileKey(f){
+            var data = f.data || f;
+            var lastMod = data.lastModified || (data.lastModifiedDate ? data.lastModifiedDate.getTime() : 0) || 'na';
+            return [f.name, data.size, lastMod].join('|');
+        }
+
+        // Clear old cache versions on startup
+        (function cleanOldCacheVersions(){
+            try{
+                var keysToRemove = [];
+                for(var i = 0; i < localStorage.length; i++){
+                    var key = localStorage.key(i);
+                    if(key && (key.startsWith('bd_sample_hash_cache_') || key.startsWith('bd_full_hash_cache_'))){
+                        if(key.indexOf(CACHE_VERSION) === -1){
+                            keysToRemove.push(key);
+                        }
+                    }
+                }
+                keysToRemove.forEach(function(key){
+                    localStorage.removeItem(key);
+                });
+                if(keysToRemove.length > 0){
+                    log('Cleaned ' + keysToRemove.length + ' old cache versions');
+                }
+            }catch(e){
+                log('Failed to clean old caches: ' + e.message);
+            }
+        })();
+
+        // ================== RESUME STATE PERSISTENCE (localStorage) ==================
+        var RESUME_STATE_KEY = 'bd_resume_state_' + CACHE_VERSION;
+
+        function persistResumeState(fileId, meta){
+            try{
+                var all = JSON.parse(localStorage.getItem(RESUME_STATE_KEY) || '{}');
+                all[fileId] = {
+                    effectiveHash: meta.effectiveHash,
+                    hashMethod: meta.hashMethod,
+                    sampleSha256: meta.sampleSha256,
+                    sha256: meta.sha256,
+                    sampleSpec: meta.sampleSpec,
+                    resumeTusId: meta.resumeTusId,
+                    resumeBytes: meta.resumeBytes,
+                    resumeMode: meta.resumeMode,
+                    relativePath: meta.relativePath,
+                    filename: meta.filename,
+                    timestamp: Date.now()
+                };
+
+                // Limit to 500 entries
+                var entries = Object.keys(all);
+                if(entries.length > 500){
+                    var sorted = entries.map(function(k){
+                        return { key: k, ts: all[k].timestamp || 0 };
+                    }).sort(function(a, b){
+                        return b.ts - a.ts;
+                    }).slice(0, 500);
+
+                    var trimmed = {};
+                    sorted.forEach(function(item){
+                        trimmed[item.key] = all[item.key];
+                    });
+                    all = trimmed;
+                }
+
+                localStorage.setItem(RESUME_STATE_KEY, JSON.stringify(all));
+            }catch(e){
+                if(e.name === 'QuotaExceededError' || e.code === 22){
+                    // Clear resume state cache if quota exceeded
+                    try{
+                        localStorage.removeItem(RESUME_STATE_KEY);
+                        log('Resume state cache cleared due to quota limits');
+                    }catch(e2){}
+                }
+            }
+        }
+
+        function restoreResumeState(fileId){
+            try{
+                var all = JSON.parse(localStorage.getItem(RESUME_STATE_KEY) || '{}');
+                var state = all[fileId];
+                if(state){
+                    // Check if state is recent (within 7 days)
+                    var age = Date.now() - (state.timestamp || 0);
+                    if(age < 7 * 24 * 60 * 60 * 1000){
+                        return state;
+                    }
+                }
+                return null;
+            }catch(e){
+                return null;
+            }
+        }
+
+        // ================== UPPY INSTANCE ==================
+        var concurrency = Math.min(12, (navigator.hardwareConcurrency || 8));
+        var uppy = new Uppy.Uppy({
+            autoProceed: false,
+            allowMultipleUploadBatches: true,
+            restrictions: {}
+        });
+
+        // Disable built-in URL persistence (we have custom resume logic)
+        var NoopUrlStorage = {
+            listAllUploads: function () { return Promise.resolve([]); },
+            findUploadsByFingerprint: function () { return Promise.resolve([]); },
+            addUpload: function () { return Promise.resolve(); },
+            removeUpload: function () { return Promise.resolve(); }
+        };
+
+        uppy.use(Uppy.Dashboard,{
+            inline: true,
+            target: '#uppyDashboard',
+            note: 'Select one folder. We create its folders server-side. MIME preserved.',
+            showProgressDetails: true,
+            proudlyDisplayPoweredByUppy: false
+        });
+
+        // ================== AGGRESSIVE TUS RETRY CONFIGURATION ==================
+        uppy.use(Uppy.Tus, {
+            endpoint: TUS_ENDPOINT,
+            chunkSize: 5 * 1024 * 1024,
+
+            // Aggressive retry schedule - never give up on network errors
+            retryDelays: [0, 1000, 3000, 5000, 10000, 15000, 20000, 30000],
+
+            removeFingerprintOnSuccess: true,
+            withCredentials: true,
+            limit: concurrency,
+            checksumAlgorithm: 'sha256',
+
+            urlStorage: (typeof tus !== 'undefined' && tus.NoopUrlStorage)
+                ? new tus.NoopUrlStorage()
+                : NoopUrlStorage,
+
+            allowedMetaFields: [
+                'filename', 'relativePath', 'filetype', 'size',
+                'hashMethod', 'sha256', 'sampleSha256', 'sampleSpec', 'effectiveHash',
+                'resumeMode', 'forceFresh', 'clientUploadGuid', 'targetFolderId', 'dupAction',
+                'resumeTusId', 'resumeBytes'
+            ],
+
+            // Add timestamp for debugging
+            onBeforeRequest: function(req) {
+                req.setHeader('X-Upload-Timestamp', Date.now().toString());
+            },
+
+            // Log non-success responses
+            onAfterResponse: function(req, res) {
+                var status = res.getStatus();
+                if(status !== 200 && status !== 204) {
+                    log('[TUS Response] Status: ' + status + ' for chunk request');
+                }
+            },
+
+            // Override shouldRetry to retry on ALL network errors indefinitely
+            shouldRetry: function(err, retryAttempt, options) {
+                var status = err && err.originalResponse ? err.originalResponse.getStatus() : 0;
+
+                // Network errors (no status code) - always retry
+                if (!status || status === 0) {
+                    log('[TUS Retry] Network error detected. Retry #' + retryAttempt + ' (will retry indefinitely)');
+                    return true;
+                }
+
+                // Transient server errors - always retry
+                if (status === 408 || status === 423 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
+                    log('[TUS Retry] Server error ' + status + '. Retry #' + retryAttempt + ' (will keep retrying)');
+                    return true;
+                }
+
+                // 404 might mean TUS upload expired - try a few times
+                if (status === 404 && retryAttempt < 3) {
+                    log('[TUS Retry] 404 - upload may have expired. Attempt ' + retryAttempt + '/3');
+                    return true;
+                }
+
+                // Client errors (400-level except transient ones) - don't retry
+                if (status >= 400 && status < 500) {
+                    log('[TUS Retry] Client error ' + status + '. Stopping retries.');
+                    return false;
+                }
+
+                // Default: retry
+                return true;
+            },
+
+            // Custom exponential backoff with jitter
+            onRetry: function(err, retryAttempt, options, retryDelay) {
+                // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, max 60s
+                var baseDelay = Math.min(60000, Math.pow(2, retryAttempt) * 1000);
+
+                // Add jitter (±20%) to prevent thundering herd
+                var jitter = baseDelay * 0.2 * (Math.random() - 0.5);
+                var actualDelay = Math.floor(baseDelay + jitter);
+
+                log('[TUS Retry] Attempt ' + retryAttempt + ' will occur in ' + Math.round(actualDelay/1000) + 's');
+
+                return actualDelay;
+            }
+        });
+
+        // ================== 423 LOCK / RESUME ENHANCED HELPERS ==================
+        var lockedRetryState = new Map();
+        var activeTusIds = new Set();
+        var terminalFailed = new Set();
+        var fileRetryState = new Map();
+
+        function isTus423(err){
+            if(!err) return false;
+            if(typeof err.message === 'string' && err.message.indexOf('response code: 423') !== -1) return true;
+            try{
+                if(err.request && err.request.xhr && err.request.xhr.status === 423) return true;
+            }catch(_){}
+            return false;
+        }
+
+        async function headTusStatus(uploadUrl){
+            if(!uploadUrl) return null;
+            try{
+                var res = await fetch(uploadUrl, {method: 'HEAD', credentials: 'same-origin'});
+                var offset = parseInt(res.headers.get('Upload-Offset') || '-1', 10);
+                var length = parseInt(res.headers.get('Upload-Length') || '-1', 10);
+                var state = res.headers.get('X-Upload-State') || null;
+                return {
+                    status: res.status,
+                    ok: res.ok,
+                    offset: offset,
+                    length: length,
+                    state: state,
+                    locked: res.status === 423
+                };
+            }catch(e){
+                return {ok: false, error: e.message || String(e)};
+            }
+        }
+
+        function cleanupTusId(file){
+            var tusUrl = file && file.tus && file.tus.uploadUrl;
+            if(tusUrl){
+                var tusId = getTusId(tusUrl);
+                activeTusIds.delete(tusId);
+            }
+        }
+
+
+                async function scheduleLockedRetry(file){
+            if(terminalFailed.has(file.id)) return;
+
+            var st = lockedRetryState.get(file.id) || {
+                attempts: 0,
+                timer: null,
+                lastOffset: -1,
+                first423Ts: Date.now()
+            };
+            st.attempts++;
+
+            var uploadUrl = file && file.tus && file.tus.uploadUrl;
+            var headInfo = await headTusStatus(uploadUrl);
+
+            if(headInfo){
+                log('[DIAG] HEAD tusId=' + getTusId(uploadUrl) + ' status=' + headInfo.status +
+                    ' offset=' + headInfo.offset + ' length=' + headInfo.length +
+                    ' state=' + (headInfo.state || ''));
+
+                // Don't treat 404 as terminal immediately - might be temporary
+                if(headInfo.status === 404 && st.attempts < 5){
+                    log('Upload temporarily not found (404). Will retry (' + st.attempts + '/5)');
+                }
+                else if(headInfo.status === 404){
+                    log('Upload not found after 5 attempts; marking as failed: ' + (file.meta.relativePath || file.name));
+                    terminalFailed.add(file.id);
+                    lockedRetryState.delete(file.id);
+                    cleanupTusId(file);
+                    failed++;
+                    refreshCounts();
+                    return;
+                }
+
+                // Completed on server?
+                if(headInfo.offset >= 0 && headInfo.length >= 0 && headInfo.offset === headInfo.length){
+                    log('Server shows upload complete; finalizing locally: ' + (file.meta.relativePath || file.name));
+                    lockedRetryState.delete(file.id);
+                    cleanupTusId(file);
+                    successful++;
+                    refreshCounts();
+
+                    var tusId = getTusId(uploadUrl);
+                    (async function(){
+                        var res = await pollServerHash(tusId, 60, 1000);
+                        if(!res){
+                            log('Server hash pending.');
+                            return;
+                        }
+                        if(res.hashMethod === 'sample' && file.meta.sampleSha256){
+                            log(file.meta.sampleSha256.toLowerCase() === res.serverHash.toLowerCase() ?
+                                'SAMPLE OK (server)' : 'SAMPLE MISMATCH (server)');
+                        } else if(res.hashMethod === 'full' && file.meta.sha256){
+                            log(file.meta.sha256.toLowerCase() === res.serverHash.toLowerCase() ?
+                                'FULL OK (server)' : 'FULL MISMATCH (server)');
+                        } else {
+                            log('Server hash: ' + res.serverHash + ' (' + res.hashMethod + ')');
+                        }
+                    })();
+                    return;
+                }
+            }
+
+            // More generous limits for enterprise use
+            var maxAttempts = 20;
+            var STUCK_MS = 60 * 60 * 1000; // 60 minutes
+            var stuckDuration = Date.now() - st.first423Ts;
+            var offsetAdvanced = headInfo && headInfo.offset > st.lastOffset && st.lastOffset >= 0;
+
+            if(st.attempts > maxAttempts || (!offsetAdvanced && stuckDuration > STUCK_MS)){
+                log('Upload locked too long; marking failed: ' + (file.meta.relativePath || file.name));
+                terminalFailed.add(file.id);
+                lockedRetryState.delete(file.id);
+                cleanupTusId(file);
+                failed++;
+                refreshCounts();
+                return;
+            }
+
+            // Faster retry schedule
+            var baseDelays = [2000, 5000, 10000, 15000, 20000, 30000];
+            var delay = baseDelays[Math.min(st.attempts - 1, baseDelays.length - 1)];
+            if(offsetAdvanced) delay = Math.max(2000, Math.floor(delay * 0.3));
+
+            log('Server reports upload is locked; retrying ' + st.attempts + '/' + maxAttempts +
+                ' in ' + Math.round(delay / 1000) + 's — ' + (file.meta.relativePath || file.name) +
+                (offsetAdvanced ? ' (offset advancing=' + headInfo.offset + ')' : ''));
+
+            updateBusy('Waiting for server lock to clear…', undefined,
+                'Retry in ' + Math.round(delay / 1000) + 's');
+
+            st.lastOffset = headInfo && headInfo.offset >= 0 ? headInfo.offset : st.lastOffset;
+            if(st.timer){
+                try{ clearTimeout(st.timer); }catch(_){}
+            }
+
+            st.timer = setTimeout(function(){
+                try{
+                    uppy.retryUpload(file.id);
+                }
+                catch(e){
+                    log('Retry scheduling failed: ' + (e.message || e));
+                    terminalFailed.add(file.id);
+                    lockedRetryState.delete(file.id);
+                    cleanupTusId(file);
+                    failed++;
+                    refreshCounts();
+                }
+            }, delay);
+
+            lockedRetryState.set(file.id, st);
+        }
+
+        uppy.on('upload-start', function(file){
+            var tusUrl = file && file.tus && file.tus.uploadUrl;
+            if(tusUrl){
+                var tusId = getTusId(tusUrl);
+                if(activeTusIds.has(tusId)){
+                    log('[DIAG] Duplicate active tusId: ' + tusId);
+                } else {
+                    activeTusIds.add(tusId);
+                }
+            }
+        });
+
+        // ================== SERVER COMMUNICATION HELPERS ==================
+        async function ensureFoldersOnServer(relativePaths, baseCandidates, opts){
+            var forceUniqueBase = !!(opts && opts.forceUniqueBase);
+            var params = new URLSearchParams();
+            params.append('__RequestVerificationToken', antiforgery());
+
+            (relativePaths || []).forEach(function(p, i){
+                params.append('RelativePaths[' + i + ']', p);
+            });
+            (baseCandidates || []).forEach(function(b, i){
+                params.append('BaseCandidates[' + i + ']', b);
+            });
+
+            if(forceUniqueBase) params.append('ForceUniqueBase', 'true');
+
+            var resp, text;
+            try{
+                resp = await fetch('@Url.Action("Ensure","TusFolders")', {
+                    method: 'POST',
+                    body: params,
+                    headers: {'Accept': 'application/json'},
+                    credentials: 'same-origin'
+                });
+                text = await resp.text();
+            }catch(e){
+                log('Ensure network error: ' + e);
+                return { baseNameMap: {} };
+            }
+
+            var data;
+            try{
+                data = JSON.parse(text);
+            }
+            catch(_){
+                log('Ensure response not JSON (status ' + resp.status + '). ' + text.slice(0, 200));
+                return { baseNameMap: {} };
+            }
+
+            if(!data.success){
+                log('Ensure failed: ' + (data.message || 'unknown'));
+                return { baseNameMap: {} };
+            }
+
+            return {
+                baseNameMap: data.baseNameMap || {},
+                pathMap: data.pathMap || {}
+            };
+        }
+
+        function rewriteBase(path, finalBase){
+            var segs = (path || '').split('/');
+            if(!segs.length) return finalBase;
+            segs[0] = finalBase;
+            return segs.join('/');
+        }
+
+        async function checkDuplicatesBulk(hashes){
+            var results = new Set();
+            if(!hashes || !hashes.length) return results;
+
+            var CHUNK = 1000;
+            for(var i = 0; i < hashes.length; i += CHUNK){
+                var group = hashes.slice(i, i + CHUNK);
+                try{
+                    var r = await fetch('@Url.Action("ExistsByHash","TusStatus")', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiforgery()
+                        },
+                        body: JSON.stringify({ hashes: group })
+                    });
+                    var d = await r.json();
+                    if(d && d.success && Array.isArray(d.existing)){
+                        for(var j = 0; j < d.existing.length; j++){
+                            var it = d.existing[j];
+                            if(typeof it === 'string'){
+                                results.add(it.toLowerCase());
+                            } else if(it && it.hash){
+                                results.add((it.hash + '').toLowerCase());
+                            }
+                        }
+                    }
+                }catch(_){}
+                await microYield();
+                await rafYield();
+            }
+            return results;
+        }
+
+        async function queryIncomplete(list){
+            var r = await fetch('@Url.Action("QueryIncomplete","TusStatus")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': antiforgery()
+                },
+                body: JSON.stringify({ files: list })
+            });
+            return r.json();
+        }
+
+        async function claimIncomplete(fileIdForUpload, targetFolderId){
+            var r = await fetch('@Url.Action("ClaimIncomplete","TusStatus")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': antiforgery()
+                },
+                body: JSON.stringify({
+                    fileIdForUpload: fileIdForUpload,
+                    targetFolderId: targetFolderId
+                })
+            });
+            return r.json();
+        }
+
+        async function createReference(payload){
+            var r = await fetch('@Url.Action("CreateReference","TusStatus")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': antiforgery()
+                },
+                body: JSON.stringify(payload)
+            });
+            return r.json();
+        }
+
+        async function logDecision(payload){
+            try{
+                await fetch('@Url.Action("LogDecision","TusStatus")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': antiforgery()
+                    },
+                    body: JSON.stringify(payload)
+                });
+            }catch(_){}
+        }
+
+        async function pollServerHash(tusId, retries, delay){
+            for(var i = 0; i < retries; i++){
+                try{
+                    var res = await $.get('@Url.Action("Hash","TusStatus")', { tusId: tusId });
+                    if(res && res.success) return res;
+                }catch(_){}
+                await new Promise(function(r){ setTimeout(r, delay); });
+            }
+            return null;
+        }
+
+        function getTusId(url){
+            if(!url) return null;
+            try{
+                var u = new URL(url, window.location.origin);
+                var parts = u.pathname.split('/');
+                return decodeURIComponent(parts[parts.length - 1] || '');
+            }catch(_){
+                var p = (url + '').split('?')[0];
+                var parts = p.split('/');
+                return decodeURIComponent(parts[parts.length - 1] || '');
+            }
+        }
+
+        // ================== HASH COMPUTATION HELPERS ==================
+        function uint8ToWordArray(u8){
+            try{
+                return CryptoJS.lib.WordArray.create(u8);
+            }catch(_){
+                var words = [];
+                for(var i = 0; i < u8.length; i += 4){
+                    words.push(
+                        ((u8[i] || 0) << 24) |
+                        ((u8[i + 1] || 0) << 16) |
+                        ((u8[i + 2] || 0) << 8) |
+                        (u8[i + 3] || 0)
+                    );
+                }
+                return CryptoJS.lib.WordArray.create(words, u8.length);
+            }
+        }
+
+        function computeSampleWindows(total, c, p){
+            var win = Math.max(1, Math.floor(total * p));
+            if(c === 1) return [{start: 0, end: Math.min(total, win)}];
+
+            var arr = [], span = total - win;
+            for(var i = 0; i < c; i++){
+                var start = Math.floor((span * i) / (c - 1));
+                arr.push({start: start, end: Math.min(total, start + win)});
+            }
+            return arr;
+        }
+
+        async function sha256SampleOfFile(file, c, p, cb){
+            var total = file.size || 0;
+            var windows = computeSampleWindows(total, c, p);
+            var totalSample = windows.reduce(function(s, w){
+                return s + (w.end - w.start);
+            }, 0);
+
+            var h = CryptoJS.algo.SHA256.create();
+            h.update(CryptoJS.enc.Utf8.parse('size:' + total + ';samples:' + c + ';pct:' + p));
+
+            var processed = 0, last = -1;
+            for(var i = 0; i < windows.length; i++){
+                var w = windows[i];
+                var rd = file.slice(w.start, w.end).stream().getReader();
+
+                for(;;){
+                    var step = await rd.read();
+                    if(step.done) break;
+
+                    var value = step.value;
+                    if(value && value.byteLength){
+                        h.update(uint8ToWordArray(value));
+                        processed += value.byteLength;
+
+                        var pct = Math.floor((processed / totalSample) * 100);
+                        if(cb && pct !== last){
+                            last = pct;
+                            cb(processed, totalSample, pct, i + 1, windows.length);
+                        }
+
+                        if((processed % (8 * 1024 * 1024)) < value.byteLength){
+                            await microYield();
+                            await rafYield();
+                        }
+                    }
+                }
+            }
+
+            return h.finalize().toString(CryptoJS.enc.Hex);
+        }
+
+        async function sha256FullOfFile(file, cb){
+            var h = CryptoJS.algo.SHA256.create();
+            var rd = file.stream().getReader();
+            var processed = 0, last = -1, total = file.size || 0;
+            var lastYield = 0, step = 8 * 1024 * 1024;
+
+            for(;;){
+                var s = await rd.read();
+                if(s.done) break;
+
+                var value = s.value;
+                if(value && value.byteLength){
+                    processed += value.byteLength;
+                    h.update(uint8ToWordArray(value));
+
+                    if(cb && total > 0){
+                        var pct = Math.floor((processed / total) * 100);
+                        if(pct !== last){
+                            last = pct;
+                            cb(processed, total, pct);
+                        }
+                    }
+
+                    if(processed - lastYield >= step){
+                        lastYield = processed;
+                        await microYield();
+                        await rafYield();
+                    }
+                }
+            }
+
+            return h.finalize().toString(CryptoJS.enc.Hex);
+        }
+
+
+                // ================== UI ELEMENTS ==================
+        var btn = document.getElementById('selectAndUploadBtn');
+        var folderInput = document.getElementById('folderInput');
+
+        // ================== FOLDER PICK + QUEUE ==================
+        btn.addEventListener('click', function(){
+            var onChange = async function(){
+                folderInput.removeEventListener('change', onChange);
+
+                try{
+                    var list = Array.prototype.slice.call(folderInput.files || []);
+
+                    if(!list.length){
+                        var baseName = prompt('No files selected. Enter a folder name to create empty on server:', 'New Folder');
+                        if(baseName && baseName.trim()){
+                            showBusy('Creating empty folder…', '', {cancelable: false});
+                            var ensureRes = await ensureFoldersOnServer(
+                                [baseName.trim()],
+                                [baseName.trim()],
+                                { forceUniqueBase: true }
+                            );
+                            hideBusy();
+                            var mapped = (ensureRes.baseNameMap && ensureRes.baseNameMap[baseName.trim()]) || baseName.trim();
+                            log('Empty folder created: "' + mapped + '"');
+                        }else{
+                            log('No files selected and no folder name provided.');
+                        }
+                        folderInput.value = '';
+                        return;
+                    }
+
+                    var firstRel = list[0].webkitRelativePath || list[0].relativePath || list[0].name;
+                    var base = (firstRel.split('/')[0] || 'Folder').trim();
+
+                    showBusy('Parsing selection…', 'Deriving folder paths', {cancelable: true});
+                    var set = new Set();
+                    set.add(base);
+
+                    var processed = 0, totalFiles = list.length, lastPct = -1;
+                    for(var i1 = 0; i1 < list.length; i1++){
+                        if(aborted){
+                            hideBusy();
+                            log('User aborted.');
+                            folderInput.value = '';
+                            return;
+                        }
+
+                        var f = list[i1];
+                        var rel = f.webkitRelativePath || f.relativePath || f.name;
+                        var parts = rel.split('/');
+
+                        if(parts.length > 1){
+                            for(var j = 1; j < parts.length - 1; j++){
+                                set.add(parts.slice(0, j + 1).join('/'));
+                            }
+                        }
+
+                        processed++;
+                        var pct = Math.floor((processed / totalFiles) * 100);
+                        if(pct !== lastPct){
+                            lastPct = pct;
+                            updateBusy('Parsing files…', Math.min(30, Math.floor(pct * 0.3)),
+                                processed + ' / ' + totalFiles + ' files');
+                        }
+
+                        if(processed % 500 === 0){
+                            await microYield();
+                            await rafYield();
+                        }
+                    }
+
+                    var implied = Array.from(set).sort(function(a, b){
+                        var da = (a.match(/\//g) || []).length;
+                        var db = (b.match(/\//g) || []).length;
+                        return da === db ? a.localeCompare(b) : da - db;
+                    });
+
+                    updateBusy('Allocating base folder…', 35, '');
+                    var alloc = await ensureFoldersOnServer([base], [base], { forceUniqueBase: true });
+                    var finalBase = (alloc.baseNameMap && alloc.baseNameMap[base]) ? alloc.baseNameMap[base] : base;
+
+                    var rewritten = implied.map(function(p){ return rewriteBase(p, finalBase); });
+                    var total = rewritten.length;
+                    var targetUpdates = 60;
+                    var CHUNK = Math.max(10, Math.ceil(total / targetUpdates));
+                    var created = 0;
+
+                    for(var i2 = 0; i2 < rewritten.length; i2 += CHUNK){
+                        if(aborted){
+                            hideBusy();
+                            log('User aborted.');
+                            folderInput.value = '';
+                            return;
+                        }
+
+                        var batch = rewritten.slice(i2, i2 + CHUNK);
+                        await ensureFoldersOnServer(batch, [], { forceUniqueBase: false });
+                        created += batch.length;
+
+                        var pct2 = 35 + Math.floor((created / total) * 55);
+                        updateBusy('Creating folders on server…', pct2, created + ' / ' + total + ' paths');
+                        await microYield();
+                        await rafYield();
+                    }
+
+                    updateBusy('Queuing files…', 95, list.length + ' files');
+                    var added = 0;
+
+                    for(var i3 = 0; i3 < list.length; i3++){
+                        if(aborted){
+                            hideBusy();
+                            log('User aborted.');
+                            folderInput.value = '';
+                            return;
+                        }
+
+                        var ff = list[i3];
+                        var rel2 = ff.webkitRelativePath || ff.relativePath || ff.name;
+                        var parts2 = rel2.split('/');
+                        parts2[0] = finalBase;
+                        rel2 = parts2.join('/');
+
+                        try{
+                            uppy.addFile({
+                                name: ff.name,
+                                type: ff.type || 'application/octet-stream',
+                                data: ff,
+                                meta: {
+                                    filename: ff.name,
+                                    relativePath: rel2,
+                                    filetype: ff.type || 'application/octet-stream',
+                                    resumeMode: 'fresh',
+                                    forceFresh: '1',
+                                    clientUploadGuid: newGuid()
+                                }
+                            });
+                            added++;
+                            if(added % 200 === 0) await rafYield();
+                        }catch(ex){
+                            console.warn('Add file failed', rel2, ex);
+                        }
+                    }
+
+                    updateBusy('Ready to upload', 100, 'Files queued: ' + added + ' • Folders: ' + total);
+                    setTimeout(function(){
+                        hideBusy();
+                        if(added > 0){ uppy.upload(); }
+                    }, 250);
+
+                    log('Prepared "' + base + '" as "' + finalBase + '". Files queued: ' + added + ', Folders: ' + total);
+
+                }catch(err){
+                    hideBusy();
+                    if(err && err.name === 'AbortError'){
+                        log('Selection canceled.');
+                    }
+                    else {
+                        console.error(err);
+                        alert('Folder selection failed: ' + (err.message || err));
+                    }
+                }finally{
+                    folderInput.value = '';
+                }
+            };
+
+            folderInput.addEventListener('change', onChange, { once: true });
+            if(typeof folderInput.showPicker === 'function'){
+                folderInput.showPicker();
+            } else {
+                folderInput.click();
+            }
+        });
+
+        // ================== FILE META NORMALIZATION + EXTENSION FILTER ==================
+        function normalizeExt(name) {
+            if (!name) return null;
+            var idx = name.lastIndexOf('.');
+            if (idx < 0) return null;
+            return name.substring(idx).toLowerCase();
+        }
+
+        uppy.on('file-added', function (f) {
+            // === EXTENSION FILTER (TUS only) ===
+            try {
+                var allowedExts = window.BOB_ALLOWED_EXTENSIONS || [];
+                if (allowedExts && allowedExts.length > 0) {
+                    var name =
+                        f.name ||
+                        (f.meta && (f.meta.filename || f.meta.name)) ||
+                        (f.data && f.data.name) ||
+                        null;
+
+                    var ext = normalizeExt(name);
+                    if (!ext || allowedExts.indexOf(ext) === -1) {
+                        // Disallowed: remove from Uppy queue
+                        uppy.removeFile(f.id);
+                        log("File blocked by extension policy: " + (name || "(unknown)") +
+                            " ext=" + (ext || "(none)"));
+
+                        if (typeof window.showMessage === 'function') {
+                            window.showMessage(
+                                "File type '" + (ext || "(none)") + "' is not allowed to upload.",
+                                "danger",
+                                6000
+                            );
+                        }
+                        return; // stop processing this file
+                    }
+                }
+            } catch (e) {
+                log("Extension filter error: " + (e.message || e));
+            }
+
+            // === your existing meta normalization ===
+            if (!f.meta.relativePath) {
+                var rel = f.data && (f.data.webkitRelativePath || f.data.relativePath);
+                if (rel) uppy.setFileMeta(f.id, { relativePath: rel });
+            }
+
+            if (!f.meta.filename) uppy.setFileMeta(f.id, { filename: f.name });
+            if (!f.meta.clientUploadGuid) uppy.setFileMeta(f.id, { clientUploadGuid: newGuid() });
+            if (!f.meta.resumeMode) uppy.setFileMeta(f.id, { resumeMode: 'fresh', forceFresh: '1' });
+
+            // Try to restore state from previous attempt (localStorage)
+            var saved = restoreResumeState(f.id);
+            if (saved && saved.effectiveHash) {
+                uppy.setFileMeta(f.id, saved);
+                log('Restored resume state from localStorage for: ' + f.name);
+            }
+        });
+
+        // ================== BIN EMPTY BUTTON ==================
+        $(document).ready(function () {
+            $('#emptyBinButton').off('click').on('click', function () {
+                if (!confirm('Are you sure you want to permanently delete all items in Bin? This cannot be undone.')) return;
+
+                if (window.GlobalLoading) GlobalLoading.show('Emptying bin...');
+
+                $.ajax({
+                    url: '@Url.Action("EmptyBin","File")',
+                    type: 'POST',
+                    data: { __RequestVerificationToken: $("input[name='__RequestVerificationToken']").val() }
+                }).done(function (resp) {
+                    if (resp && resp.success) {
+                        showMessage('Empty Bin scheduled.', 'warning', 6000);
+
+                        // If the user is currently looking at Bin, reload that folder
+                        var currentFolderId = $('#uploadFolderId').val();
+                        if (typeof loadFolder === 'function' && currentFolderId) {
+                            var searchParams = new URLSearchParams(window.location.search);
+                            var isPickerMode = searchParams.get('picker') === 'true';
+                            loadFolder(currentFolderId, isPickerMode);
+                        }
+                    } else {
+                        showMessage((resp && resp.message) || 'Failed to schedule Empty Bin.', 'danger');
+                    }
+                }).fail(function () {
+                    showMessage('Server error scheduling Empty Bin.', 'danger');
+                }).always(function () {
+                    if (window.GlobalLoading) GlobalLoading.hide();
+                });
+            });
+        });
+
+        // ================== FILTER SKIPPED FILES BEFORE UPLOAD ==================
+        uppy.on('beforeUpload', function(files){
+            var kept = {};
+            Object.keys(files).forEach(function(id){
+                var f = files[id];
+                if(!(f.meta && f.meta.skipUpload === true)){
+                    kept[id] = f;
+                }
+            });
+            return { files: kept };
+        });
+
+
+        // ================== PRE-PROCESSOR (HASHING / RESUME ANALYSIS WITH PERSISTENT CACHE) ==================
+        uppy.addPreProcessor(async function (fileIDs) {
+            if (!fileIDs || !fileIDs.length) return;
+
+            showBusy('Preparing files…', '', { cancelable: true });
+
+            try {
+                var resumeProbe = [], fileInfos = [];
+
+                for (var i = 0; i < fileIDs.length; i++) {
+                    if (aborted) throw new Error('User aborted');
+
+                    var id = fileIDs[i];
+                    var f = uppy.getFile(id);
+                    if (!f) continue;
+
+                    if (!f.meta.size) uppy.setFileMeta(id, { size: f.size });
+
+                    var used = null, method = null;
+                    var key = makeFileKey(f);
+
+                    // **STEP 1: Check if hash already exists from previous attempt (in-memory)**
+                    if (f.meta.effectiveHash && f.meta.hashMethod) {
+                        used = f.meta.effectiveHash;
+                        method = f.meta.hashMethod;
+                        log('Reusing hash from current session: ' + f.name + ' [' + used.substring(0, 12) + '…]');
+                    }
+                    // **STEP 2: Check localStorage persistent cache**
+                    else if (f.size > LARGE_THRESHOLD) {
+                        // Large file - check sample hash cache
+                        if (sampleHashCache[key] && sampleHashCache[key].sampleSha256) {
+                            var cached = sampleHashCache[key];
+                            uppy.setFileMeta(id, {
+                                sampleSha256: cached.sampleSha256,
+                                sampleSpec: cached.sampleSpec,
+                                effectiveHash: cached.sampleSha256,
+                                hashMethod: 'sample'
+                            });
+                            used = cached.sampleSha256;
+                            method = 'sample';
+
+                            // Calculate cache age
+                            var cacheAge = cached.timestamp ? Math.round((Date.now() - cached.timestamp) / (1000 * 60 * 60 * 24)) : 0;
+                            log('Sample hash (persistent cache, ' + cacheAge + ' days old): ' + f.name + ' [' + cached.sampleSha256.substring(0, 12) + '…]');
+                        } else {
+                            // Compute sample hash
+                            var lp = -1;
+                            log('Sampling (large file >1GB): ' + (f.meta.relativePath || f.name));
+
+                            var sHex = await sha256SampleOfFile(f.data, SAMPLE_COUNT, SAMPLE_PCT, function (done, totalSample, pct, idx, win) {
+                                if (pct !== lp) {
+                                    lp = pct;
+                                    updateBusy('Sampling ' + (f.meta.relativePath || f.name) + '…',
+                                        Math.round((i + pct / 100) / fileIDs.length * 100),
+                                        'window ' + idx + '/' + win + ' • ' + done + '/' + totalSample);
+                                }
+                            });
+
+                            var spec = 's' + SAMPLE_COUNT + ',p' + (SAMPLE_PCT * 100) + '%';
+
+                            // **SAVE TO PERSISTENT CACHE (localStorage)**
+                            sampleHashCache[key] = {
+                                sampleSha256: sHex,
+                                sampleSpec: spec,
+                                timestamp: Date.now(),
+                                fileSize: f.size,
+                                fileName: f.name
+                            };
+                            persistSampleHashCache();
+
+                            uppy.setFileMeta(id, {
+                                sampleSha256: sHex,
+                                sampleSpec: spec,
+                                effectiveHash: sHex,
+                                hashMethod: 'sample'
+                            });
+                            used = sHex;
+                            method = 'sample';
+                            log('Sample OK (saved to cache): ' + f.name + ' [' + sHex.substring(0, 12) + '…]');
+                        }
+                    } else {
+                        // **FULL HASH WITH PERSISTENT CACHING**
+                        if (fullHashCache[key] && fullHashCache[key].sha256) {
+                            var cached = fullHashCache[key];
+                            uppy.setFileMeta(id, {
+                                sha256: cached.sha256,
+                                effectiveHash: cached.sha256,
+                                hashMethod: 'full'
+                            });
+                            used = cached.sha256;
+                            method = 'full';
+
+                            // Calculate cache age
+                            var cacheAge = cached.timestamp ? Math.round((Date.now() - cached.timestamp) / (1000 * 60 * 60 * 24)) : 0;
+                            log('Full hash (persistent cache, ' + cacheAge + ' days old): ' + f.name + ' [' + cached.sha256.substring(0, 12) + '…]');
+                        } else {
+                            // Compute full hash
+                            var lp2 = -1;
+                            log('Hashing (full): ' + (f.meta.relativePath || f.name));
+
+                            var fHex = await sha256FullOfFile(f.data, function (done, total, pct) {
+                                if (pct !== lp2) {
+                                    lp2 = pct;
+                                    updateBusy('Hashing ' + (f.meta.relativePath || f.name) + '…',
+                                        Math.round((i + pct / 100) / fileIDs.length * 100),
+                                        done + '/' + total + ' bytes');
+                                }
+                            });
+
+                            // **SAVE TO PERSISTENT CACHE (localStorage)**
+                            fullHashCache[key] = {
+                                sha256: fHex,
+                                timestamp: Date.now(),
+                                fileSize: f.size,
+                                fileName: f.name
+                            };
+                            persistFullHashCache();
+
+                            uppy.setFileMeta(id, {
+                                sha256: fHex,
+                                effectiveHash: fHex,
+                                hashMethod: 'full'
+                            });
+                            used = fHex;
+                            method = 'full';
+                            log('Full OK (saved to cache): ' + f.name + ' [' + fHex.substring(0, 12) + '…]');
+                        }
+                    }
+
+                    uppy.setFileMeta(id, { effectiveHash: used, hashMethod: method });
+
+                    if (used) {
+                        resumeProbe.push({
+                            hash: used,
+                            size: f.size,
+                            name: f.name
+                        });
+                        fileInfos.push({
+                            id: id,
+                            hash: (used + '').toLowerCase()
+                        });
+                    }
+
+                    await rafYield();
+                }
+
+                // **PROBE FOR RESUMABLE UPLOADS**
+                updateBusy('Probing resumables…', 92, fileInfos.length + ' files');
+                var resumeMap = {};
+
+                if (resumeProbe.length) {
+                    try {
+                        var r = await queryIncomplete(resumeProbe);
+                        if (r && r.success && Array.isArray(r.results)) {
+                            r.results.forEach(function (x) {
+                                if (x.hash) resumeMap[(x.hash + '').toLowerCase()] = x;
+                            });
+                        }
+                    } catch (e) {
+                        log('Resume probe failed: ' + (e.message || e));
+                    }
+                }
+
+                // **CHECK FOR DUPLICATES**
+                updateBusy('Analyzing duplicates…', 96, fileInfos.length + ' hashes');
+                var allHashes = fileInfos.map(function (fi) { return fi.hash; });
+                var duplicateSet = await checkDuplicatesBulk(allHashes);
+
+                // ================== DIALOG HELPERS ==================
+                function openResumeDialog(name, uploaded, total, diffUser) {
+                    return new Promise(function (res) {
+                        var ov = document.getElementById('resumeOverlay');
+                        var desc = document.getElementById('resumeDesc');
+                        var all = document.getElementById('resumeApplyAll');
+                        var fr = document.getElementById('resumeFreshBtn');
+                        var rs = document.getElementById('resumeResumeBtn');
+                        var pct = total ? ((uploaded / total) * 100).toFixed(1) : 'Unknown';
+
+                        desc.innerHTML = '<b>File:</b> ' + name + '<br/><b>Uploaded:</b> ' + uploaded + ' / ' + total + ' (' + pct + '%)' +
+                            (diffUser ? '<br/><span style="color:#b00;">Started by another user — resuming will claim it.</span>' : '');
+                        all.checked = false;
+
+                        function done(a) {
+                            ov.style.display = 'none';
+                            fr.onclick = null;
+                            rs.onclick = null;
+                            res({ action: a, applyAll: all.checked });
+                        }
+
+                        fr.onclick = function () { done('fresh'); };
+                        rs.onclick = function () { done('resume'); };
+                        ov.style.display = 'block';
+                        setTimeout(function () { rs.focus(); }, 0);
+                    });
+                }
+
+                function openDuplicateDialog(name, folder) {
+                    return new Promise(function (res) {
+                        var ov = document.getElementById('dupOverlay');
+                        var desc = document.getElementById('dupDesc');
+                        var all = document.getElementById('dupApplyAll');
+                        var sk = document.getElementById('dupSkipBtn');
+                        var lk = document.getElementById('dupLinkBtn');
+                        var up = document.getElementById('dupUploadBtn');
+                        var bz = document.getElementById('busyOverlay');
+                        var prevZ = bz ? bz.style.zIndex : '';
+                        var prevPE = bz ? bz.style.pointerEvents : '';
+
+                        if (bz) {
+                            bz.style.zIndex = '1040';
+                            bz.style.pointerEvents = 'none';
+                        }
+
+                        all.checked = false;
+                        desc.innerHTML = 'Existing file with same fingerprint.<br/><b>File:</b> ' + name +
+                            (folder ? ('<br/><b>Folder:</b> ' + folder) : '');
+
+                        function done(a) {
+                            ov.style.display = 'none';
+                            if (bz) {
+                                bz.style.zIndex = prevZ;
+                                bz.style.pointerEvents = prevPE;
+                            }
+                            sk.onclick = null;
+                            lk.onclick = null;
+                            up.onclick = null;
+                            res({ action: a, applyAll: all.checked });
+                        }
+
+                        sk.onclick = function () { done('skip'); };
+                        lk.onclick = function () { done('link'); };
+                        up.onclick = function () { done('upload'); };
+                        ov.style.display = 'block';
+                        setTimeout(function () { up.focus(); }, 0);
+                    });
+                }
+
+                function openResumeDupDialog(name, folder, uploaded, total, diffUser) {
+                    return new Promise(function (res) {
+                        var ov = document.getElementById('resumeDupOverlay');
+                        var desc = document.getElementById('resumeDupDesc');
+                        var all = document.getElementById('resumeDupApplyAll');
+                        var sk = document.getElementById('resumeDupSkipBtn');
+                        var lk = document.getElementById('resumeDupLinkBtn');
+                        var rs = document.getElementById('resumeDupResumeBtn');
+                        var up = document.getElementById('resumeDupUploadBtn');
+                        var pct = total ? ((uploaded / total) * 100).toFixed(1) : 'Unknown';
+
+                        desc.innerHTML = '<b>File:</b> ' + name + (folder ? ('<br/><b>Folder:</b> ' + folder) : '') +
+                            '<br/><b>Partial Upload:</b> ' + uploaded + ' / ' + total + ' (' + pct + '%)' +
+                            (diffUser ? '<br/><span style="color:#b00;">Partial started by another user — resuming will claim it.</span>' : '');
+                        all.checked = false;
+
+                        function done(a) {
+                            ov.style.display = 'none';
+                            sk.onclick = lk.onclick = rs.onclick = up.onclick = null;
+                            res({ action: a, applyAll: all.checked });
+                        }
+
+                        sk.onclick = function () { done('skip'); };
+                        lk.onclick = function () { done('link'); };
+                        rs.onclick = function () { done('resume'); };
+                        up.onclick = function () { done('upload'); };
+                        ov.style.display = 'block';
+                        setTimeout(function () { rs.focus(); }, 0);
+                    });
+                }
+
+                var dupPolicy = null, dupApplyAll = false;
+                var resumePolicy = null, resumeApplyAll = false;
+                var bothPolicy = null, bothApplyAll = false;
+
+                // ================== PROCESS EACH FILE (RESUME/DUPLICATE LOGIC) ==================
+                for (var k = 0; k < fileIDs.length; k++) {
+                    var id2 = fileIDs[k];
+                    var f2 = uppy.getFile(id2);
+                    if (!f2) continue;
+
+                    var used2 = (f2.meta && f2.meta.effectiveHash) ? (f2.meta.effectiveHash + '').toLowerCase() : null;
+                    if (!used2) continue;
+
+                    // Clear any existing TUS URL
+                    var cur0 = uppy.getFile(id2);
+                    var cleared0 = Object.assign({}, (cur0 && cur0.tus) || {});
+                    if (cleared0.uploadUrl) delete cleared0.uploadUrl;
+                    uppy.setFileState(id2, { tus: cleared0 });
+                    uppy.setFileMeta(id2, { resumeTusId: null, resumeBytes: null });
+
+                    var rinfo = resumeMap[used2];
+                    var hasResume = !!(rinfo && rinfo.canResume);
+                    var isDup = duplicateSet.has(used2);
+                    var folder = (f2.meta && f2.meta.relativePath) ? f2.meta.relativePath.split('/').slice(0, -1).join('/') : '';
+
+                    var decisionPayloadBase = {
+                        hash: used2,
+                        size: f2.size,
+                        name: f2.name,
+                        relativePath: f2.meta && f2.meta.relativePath ? f2.meta.relativePath : null,
+                        resumableFound: hasResume,
+                        duplicateFound: isDup,
+                        clientUploadGuid: f2.meta && f2.meta.clientUploadGuid ? f2.meta.clientUploadGuid : null,
+                        uploadedBytes: hasResume ? rinfo.uploadedBytes : null,
+                        expectedBytes: hasResume ? rinfo.expectedBytes : null,
+                        resumeTusId: hasResume ? rinfo.fileIdForUpload : null
+                    };
+
+                    // **SCENARIO 1: Both resumable AND duplicate exist**
+                    if (hasResume && isDup) {
+                        var actionBoth = bothApplyAll ? bothPolicy : null;
+                        if (!actionBoth) {
+                            var dlgBoth = await openResumeDupDialog(f2.name, folder, rinfo.uploadedBytes, rinfo.expectedBytes, rinfo.differentUser);
+                            actionBoth = dlgBoth.action;
+                            if (dlgBoth.applyAll) {
+                                bothPolicy = actionBoth;
+                                bothApplyAll = true;
+                            }
+                        }
+
+                        if (actionBoth === 'skip') {
+                            try {
+                                uppy.setFileMeta(id2, { skipUpload: true });
+                                uppy.removeFile(id2);
+                            } catch (_) { }
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'skip' }));
+                            log('Skipped (both present): ' + (f2.meta.relativePath || f2.name));
+                            continue;
+                        }
+
+                        if (actionBoth === 'link') {
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'duplicate' }));
+                            var payload = {
+                                hash: used2,
+                                hashMethod: f2.meta.hashMethod,
+                                sampleSpec: f2.meta.sampleSpec || null,
+                                name: f2.name,
+                                contentType: f2.type || 'application/octet-stream',
+                                size: f2.size,
+                                relativePath: f2.meta.relativePath || null,
+                                targetFolderId: f2.meta.targetFolderId || null
+                            };
+
+                            try {
+                                var resp = await createReference(payload);
+                                if (resp && resp.success) {
+                                    uppy.setFileMeta(id2, { skipUpload: true });
+                                    try { uppy.removeFile(id2); } catch (_) { }
+                                    log('Reference created: ' + (f2.meta.relativePath || f2.name));
+                                } else {
+                                    uppy.setFileMeta(id2, { skipUpload: true });
+                                    try { uppy.removeFile(id2); } catch (_) { }
+                                    log('Reference failed; skipped: ' + f2.name);
+                                }
+                            } catch (e) {
+                                uppy.setFileMeta(id2, { skipUpload: true });
+                                try { uppy.removeFile(id2); } catch (_) { }
+                                log('Reference exception; skipped: ' + f2.name);
+                            }
+                            continue;
+                        }
+
+                        if (actionBoth === 'resume') {
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'resume' }));
+
+                            if (rinfo.differentUser) {
+                                try {
+                                    var claim = await claimIncomplete(rinfo.fileIdForUpload, f2.meta.targetFolderId || null);
+                                    if (!claim || !claim.success) {
+                                        log('Claim failed; will try fresh: ' + f2.name);
+                                    } else {
+                                        log('Claimed incomplete upload from another user: ' + f2.name);
+                                    }
+                                } catch (e) {
+                                    log('Claim exception; will try fresh: ' + f2.name);
+                                }
+                            }
+
+                            var resumeId = rinfo.fileIdForUpload;
+                            var resumeUrl = (rinfo.uploadUrl && rinfo.uploadUrl.toString()) ||
+                                (TUS_ENDPOINT + '/' + encodeURIComponent(resumeId));
+                            var cur = uppy.getFile(id2);
+                            var mergedTus = Object.assign({}, (cur && cur.tus) || {}, { uploadUrl: resumeUrl });
+                            uppy.setFileState(id2, { tus: mergedTus });
+                            uppy.setFileMeta(id2, {
+                                resumeTusId: resumeId,
+                                resumeBytes: rinfo.uploadedBytes,
+                                resumeMode: 'resume',
+                                forceFresh: '0'
+                            });
+                            log('Resuming (both present): ' + f2.name);
+                            continue;
+                        }
+
+                        if (actionBoth === 'upload') {
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'upload_anyway' }));
+                            uppy.setFileMeta(id2, { resumeMode: 'fresh', forceFresh: '1' });
+                            log('Uploading anyway (both present): ' + (f2.meta.relativePath || f2.name));
+                            continue;
+                        }
+                    }
+
+                                        // **SCENARIO 2: Resumable upload exists (no duplicate)**
+                    else if(hasResume){
+                        var action = resumeApplyAll ? resumePolicy : null;
+                        if(!action){
+                            var dlg = await openResumeDialog(
+                                f2.meta.relativePath || f2.name,
+                                rinfo.uploadedBytes,
+                                rinfo.expectedBytes,
+                                rinfo.differentUser
+                            );
+                            action = dlg.action;
+                            if(dlg.applyAll){
+                                resumePolicy = action;
+                                resumeApplyAll = true;
+                            }
+                        }
+
+                        if(action === 'resume'){
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'resume' }));
+
+                            if(rinfo.differentUser){
+                                try{
+                                    var claim2 = await claimIncomplete(rinfo.fileIdForUpload, f2.meta.targetFolderId || null);
+                                    if(!claim2 || !claim2.success){
+                                        log('Claim failed; will upload fresh: ' + f2.name);
+                                    } else {
+                                        log('Claimed incomplete upload from another user: ' + f2.name);
+                                    }
+                                }catch(e){
+                                    log('Claim exception; will upload fresh: ' + f2.name);
+                                }
+                            }
+
+                            var resumeId2 = rinfo.fileIdForUpload;
+                            var resumeUrl2 = (rinfo.uploadUrl && rinfo.uploadUrl.toString()) ||
+                                            (TUS_ENDPOINT + '/' + encodeURIComponent(resumeId2));
+                            var cur2 = uppy.getFile(id2);
+                            var mergedTus2 = Object.assign({}, (cur2 && cur2.tus) || {}, { uploadUrl: resumeUrl2 });
+                            uppy.setFileState(id2, { tus: mergedTus2 });
+                            uppy.setFileMeta(id2, {
+                                resumeTusId: resumeId2,
+                                resumeBytes: rinfo.uploadedBytes,
+                                resumeMode: 'resume',
+                                forceFresh: '0'
+                            });
+                            log('Resuming: ' + f2.name + ' (uploaded: ' + rinfo.uploadedBytes + ' / ' + rinfo.expectedBytes + ' bytes)');
+                            continue;
+                        } else {
+                            // User chose fresh upload
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'fresh' }));
+                            var cur3 = uppy.getFile(id2);
+                            var cleared = Object.assign({}, (cur3 && cur3.tus) || {});
+                            if(cleared.uploadUrl) delete cleared.uploadUrl;
+                            uppy.setFileState(id2, { tus: cleared });
+                            uppy.setFileMeta(id2, {
+                                resumeMode: 'fresh',
+                                forceFresh: '1',
+                                clientUploadGuid: f2.meta.clientUploadGuid || newGuid(),
+                                resumeTusId: null,
+                                resumeBytes: null
+                            });
+                            log('Fresh upload chosen (ignoring resume): ' + f2.name);
+                        }
+                    }
+
+                    // **SCENARIO 3: Duplicate exists (no resumable)**
+                    else if(isDup){
+                        var action2 = dupApplyAll ? dupPolicy : null;
+                        if(!action2){
+                            var dlg2 = await openDuplicateDialog(f2.name, folder);
+                            action2 = dlg2.action;
+                            if(dlg2.applyAll){
+                                dupPolicy = action2;
+                                dupApplyAll = true;
+                            }
+                        }
+
+                        if(action2 === 'skip'){
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'skip' }));
+                            try{
+                                uppy.setFileMeta(id2, {skipUpload: true});
+                                uppy.removeFile(id2);
+                            }catch(_){}
+                            log('Skipped duplicate: ' + (f2.meta.relativePath || f2.name));
+                        }
+                        else if(action2 === 'link'){
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'duplicate' }));
+                            var payload2 = {
+                                hash: used2,
+                                hashMethod: f2.meta.hashMethod,
+                                sampleSpec: f2.meta.sampleSpec || null,
+                                name: f2.name,
+                                contentType: f2.type || 'application/octet-stream',
+                                size: f2.size,
+                                relativePath: f2.meta.relativePath || null,
+                                targetFolderId: f2.meta.targetFolderId || null
+                            };
+
+                            try{
+                                var resp2 = await createReference(payload2);
+                                if(resp2 && resp2.success){
+                                    uppy.setFileMeta(id2, {skipUpload: true});
+                                    try{ uppy.removeFile(id2); }catch(_){}
+                                    log('Reference created (instant dedup): ' + (f2.meta.relativePath || f2.name));
+                                }else{
+                                    uppy.setFileMeta(id2, {skipUpload: true});
+                                    try{ uppy.removeFile(id2); }catch(_){}
+                                    log('Reference creation failed; skipped: ' + f2.name);
+                                }
+                            }catch(e){
+                                uppy.setFileMeta(id2, {skipUpload: true});
+                                try{ uppy.removeFile(id2); }catch(_){}
+                                log('Reference exception; skipped: ' + f2.name);
+                            }
+                        }
+                        else {
+                            // User chose to upload anyway
+                            await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'upload_anyway' }));
+                            uppy.setFileMeta(id2, {
+                                dupAction: 'upload',
+                                resumeMode: 'fresh',
+                                forceFresh: '1'
+                            });
+                            log('Uploading duplicate anyway (user choice): ' + (f2.meta.relativePath || f2.name));
+                        }
+                    }
+
+                    // **SCENARIO 4: Normal upload (no resume, no duplicate)**
+                    else {
+                        await logDecision(Object.assign({}, decisionPayloadBase, { decision: 'fresh' }));
+                        uppy.setFileMeta(id2, {
+                            resumeMode: 'fresh',
+                            forceFresh: '1'
+                        });
+                        log('Ready for upload: ' + (f2.meta.relativePath || f2.name));
+                    }
+
+                    updateBusy('Finalizing preparation…', 99, (k + 1) + ' / ' + fileIDs.length + ' prepared');
+                    await microYield();
+                    await rafYield();
+                }
+
+            } finally {
+                hideBusy();
+            }
+        });
+
+        // Save state after preprocessing completes
+        uppy.on('preprocess-complete', function(file){
+            if(file.meta && file.meta.effectiveHash){
+                persistResumeState(file.id, file.meta);
+                log('Resume state saved to localStorage for: ' + file.name);
+            }
+        });
+
+        // ================== PROGRESS & COUNTS ==================
+        var totalPlanned = 0, successful = 0, failed = 0;
+
+        function refreshCounts(percent) {
+            var counts = successful + ' / ' + totalPlanned + ' done • ' + failed + ' failed';
+
+            if (uploadSpeedInfo && uploadSpeedInfo.bytesTotal > 0) {
+                var speedStr = formatSpeed(uploadSpeedInfo.instantBps || uploadSpeedInfo.avgBps);
+                var uploadedMB = (uploadSpeedInfo.bytesUploaded / (1024 * 1024)).toFixed(2);
+                var totalMB = (uploadSpeedInfo.bytesTotal / (1024 * 1024)).toFixed(2);
+                counts += ' • ' + uploadedMB + ' / ' + totalMB + ' MB @@ ' + speedStr;
+            }
+
+            updateBusy('Uploading files…', percent, counts);
+        }
+
+        uppy.on('upload', function () {
+            var files = uppy.getFiles().filter(function (f) {
+                return !(f.meta && f.meta.skipUpload);
+            });
+            totalPlanned = files.length;
+            successful = 0;
+            failed = 0;
+
+            // Initialize speed tracking
+            uploadSpeedInfo.bytesUploaded = 0;
+            uploadSpeedInfo.bytesTotal = files.reduce(function (sum, f) { return sum + (f.size || 0); }, 0);
+            uploadSpeedInfo.startedAt = Date.now();
+            uploadSpeedInfo.instantBps = 0;
+            uploadSpeedInfo.avgBps = 0;
+            lastProgressSnapshot = null;
+
+            showBusy('Uploading…', 'Initializing', { cancelable: true });
+            var btn = document.getElementById('busyCancel');
+            if (btn) {
+                btn.onclick = function () {
+                    aborted = true;
+                    try { uppy.cancelAll(); } catch (_) { }
+                };
+            }
+            refreshCounts(0);
+        });
+
+        uppy.on('progress', function (percent) {
+            // Uppy aggregate progress has: bytesUploaded, bytesTotal on uppy object
+            var state = uppy.getState && uppy.getState();
+            var bytesUploaded = 0;
+            var bytesTotal = uploadSpeedInfo.bytesTotal;
+
+            // Uppy core exposes totalProgress in state or via uppy.getFiles();
+            // safer to recompute from files:
+            var files = uppy.getFiles().filter(function (f) {
+                return !(f.meta && f.meta.skipUpload);
+            });
+            bytesUploaded = files.reduce(function (sum, f) {
+                var p = (f.progress && typeof f.progress.bytesUploaded === 'number')
+                    ? f.progress.bytesUploaded
+                    : (f.size || 0) * ((f.progress && f.progress.percentage || 0) / 100.0);
+                return sum + (p || 0);
+            }, 0);
+            if (!bytesTotal) {
+                bytesTotal = files.reduce(function (sum, f) { return sum + (f.size || 0); }, 0);
+                uploadSpeedInfo.bytesTotal = bytesTotal;
+            }
+
+            var now = Date.now();
+            if (!uploadSpeedInfo.startedAt) uploadSpeedInfo.startedAt = now;
+
+            // Average speed since start
+            var elapsedTotalSec = (now - uploadSpeedInfo.startedAt) / 1000.0;
+            uploadSpeedInfo.bytesUploaded = bytesUploaded;
+            if (elapsedTotalSec > 0) {
+                uploadSpeedInfo.avgBps = bytesUploaded / elapsedTotalSec;
+            }
+
+            // Instant speed between snapshots (simple delta)
+            if (lastProgressSnapshot) {
+                var deltaBytes = bytesUploaded - lastProgressSnapshot.bytesUploaded;
+                var deltaTimeMs = now - lastProgressSnapshot.time;
+                if (deltaTimeMs > 250) { // avoid crazy spikes for tiny deltas
+                    var deltaSec = deltaTimeMs / 1000.0;
+                    uploadSpeedInfo.instantBps = deltaBytes / deltaSec;
+                }
+            }
+            lastProgressSnapshot = { time: now, bytesUploaded: bytesUploaded };
+
+            refreshCounts(percent);
+        });
+
+        uppy.on('upload-success', function(file, response){
+            // Clear retry state
+            fileRetryState.delete(file.id);
+
+            if(lockedRetryState.has(file.id)){
+                try{
+                    clearTimeout(lockedRetryState.get(file.id).timer);
+                }catch(_){}
+                lockedRetryState.delete(file.id);
+            }
+
+            cleanupTusId(file);
+            successful++;
+
+            var uploadUrl = (response && response.uploadURL) || file.uploadURL ||
+                           (file.tus && (file.tus.uploadUrl || file.tus.uploadURL)) ||
+                           (file.response && file.response.uploadURL) || null;
+            var tusId = getTusId(uploadUrl);
+
+            // Log retry statistics if there were any issues
+            var stats = fileRetryState.get(file.id);
+            if(stats && stats.totalRetries > 0){
+                log('✅ Completed after ' + stats.totalRetries + ' retries (' + stats.networkErrors + ' network errors): ' +
+                    (file.meta.relativePath || file.name));
+            } else {
+                log('✅ Completed: ' + (file.meta.relativePath || file.name) +
+                    (tusId ? (' [tusId: ' + tusId + ']') : ''));
+            }
+
+            // Verify server hash
+            (async function(){
+                if(!tusId) return;
+                var res = await pollServerHash(tusId, 60, 1000);
+                if(!res){
+                    log('Server hash pending for: ' + file.name);
+                    return;
+                }
+
+                if(res.hashMethod === 'sample' && file.meta.sampleSha256){
+                    var match = file.meta.sampleSha256.toLowerCase() === res.serverHash.toLowerCase();
+                    log(match ? '✅ SAMPLE HASH VERIFIED (server)' : '❌ SAMPLE HASH MISMATCH (server)');
+                } else if(res.hashMethod === 'full' && file.meta.sha256){
+                    var match = file.meta.sha256.toLowerCase() === res.serverHash.toLowerCase();
+                    log(match ? '✅ FULL HASH VERIFIED (server)' : '❌ FULL HASH MISMATCH (server)');
+                } else {
+                    log('Server hash: ' + res.serverHash + ' (' + res.hashMethod + ')');
+                }
+            })();
+        });
+
+        // ================== ENHANCED UPLOAD ERROR HANDLING ==================
+        uppy.on('upload-error', function(file, err){
+            if(terminalFailed.has(file.id)) return;
+
+            var errorMsg = (err && err.message) || String(err) || 'Unknown error';
+            var isNetworkError = errorMsg.toLowerCase().includes('network') ||
+                                errorMsg.toLowerCase().includes('fetch') ||
+                                errorMsg.toLowerCase().includes('offline') ||
+                                errorMsg.toLowerCase().includes('timeout') ||
+                                (err && err.originalResponse && err.originalResponse.getStatus() === 0);
+
+            var isServerError = err && err.originalResponse &&
+                               [408, 423, 429, 500, 502, 503, 504].includes(err.originalResponse.getStatus());
+
+            // Initialize retry state if needed
+            if(!fileRetryState.has(file.id)){
+                fileRetryState.set(file.id, {
+                    networkErrors: 0,
+                    lastError: Date.now(),
+                    consecutiveErrors: 0,
+                    totalRetries: 0
+                });
+            }
+
+            var state = fileRetryState.get(file.id);
+            state.consecutiveErrors++;
+            state.totalRetries++;
+            state.lastError = Date.now();
+
+            // Handle network errors - NEVER give up unless user cancels
+            if(isNetworkError){
+                state.networkErrors++;
+                fileRetryState.set(file.id, state);
+
+                log('⚠️ Network error #' + state.networkErrors + ' for: ' + (file.meta.relativePath || file.name) +
+                    '. Upload will automatically retry when connection is restored.');
+
+                updateBusy(
+                    'Network interrupted - retrying...',
+                    undefined,
+                    'Retry #' + state.totalRetries + ' • File: ' + (file.meta.relativePath || file.name)
+                );
+
+                return; // Don't mark as failed - TUS will retry
+            }
+
+            // Handle server errors - retry with backoff
+            if(isServerError){
+                fileRetryState.set(file.id, state);
+
+                log('⚠️ Server error ' + (err.originalResponse ? err.originalResponse.getStatus() : '') +
+                    ' for: ' + (file.meta.relativePath || file.name) + '. Retry #' + state.totalRetries);
+
+                updateBusy(
+                    'Server busy - retrying...',
+                    undefined,
+                    'Retry #' + state.totalRetries + ' • File: ' + (file.meta.relativePath || file.name)
+                );
+
+                return; // Let TUS plugin retry
+            }
+
+            // Handle 423 lock errors specially
+            if(file && file.meta && file.meta.resumeMode === 'resume' && isTus423(err)){
+                var existing = lockedRetryState.get(file.id);
+                if(existing && existing.pendingThisTick) return;
+
+                var st = existing || { attempts: 0 };
+                st.pendingThisTick = true;
+                lockedRetryState.set(file.id, st);
+
+                scheduleLockedRetry(file).then(function(){
+                    var cur = lockedRetryState.get(file.id);
+                    if(cur){
+                        delete cur.pendingThisTick;
+                        lockedRetryState.set(file.id, cur);
+                    }
+                });
+                return;
+            }
+
+            // Only mark as terminal failure for actual client errors (400-level except 408, 423, 429)
+            var isClientError = err && err.originalResponse &&
+                               err.originalResponse.getStatus() >= 400 &&
+                               err.originalResponse.getStatus() < 500 &&
+                               ![408, 423, 429].includes(err.originalResponse.getStatus());
+
+            if(isClientError || state.consecutiveErrors > 100){ // Safety limit: 100 consecutive errors
+                failed++;
+                terminalFailed.add(file.id);
+                cleanupTusId(file);
+                fileRetryState.delete(file.id);
+                log('❌ Upload error (terminal): ' + (file && (file.meta && file.meta.relativePath || file.name) || 'unknown') + ' — ' + errorMsg);
+                refreshCounts();
+            } else {
+                log('⚠️ Upload error (retrying): ' + (file && (file.meta && file.meta.relativePath || file.name) || 'unknown') + ' — ' + errorMsg);
+            }
+        });
+
+        uppy.on('cancel-all', function(){
+            hideBusy();
+            log('⚠️ Uploads canceled by user: ' + new Date().toLocaleString());
+        });
+
+        uppy.on('complete', function(r){
+            refreshCounts(100);
+            setTimeout(hideBusy, 300);
+            log('🎉 Upload batch complete. Success: ' + r.successful.length + ', Failed: ' + r.failed.length +
+                 new Date().toLocaleString() + ']');
+        });
+
+
+        // ================== NETWORK STATUS MONITORING (DEBOUNCED) ==================
+        (function setupNetworkMonitoring() {
+            var wasOnline = navigator.onLine;
+            var pendingRetries = new Set(); // Track files already scheduled for retry
+
+            function updateNetworkStatus() {
+                var isOnline = navigator.onLine;
+
+                if (wasOnline && !isOnline) {
+                    log('📡 Network connection lost at ' + new Date().toLocaleTimeString() +
+                        '. Uploads will automatically resume when connection is restored.');
+                    updateBusy(
+                        'Network Offline',
+                        undefined,
+                        'Waiting for connection... (uploads will auto-resume)'
+                    );
+                }
+                else if (!wasOnline && isOnline) {
+                    log('📡 Network connection restored at ' + new Date().toLocaleTimeString() + '. Waiting for TUS auto-retry...');
+
+                    // ✅ FIX: Wait 2 seconds to let TUS plugin's built-in retry mechanism trigger first
+                    setTimeout(function () {
+                        var files = uppy.getFiles();
+                        var retriedCount = 0;
+
+                        files.forEach(function (file) {
+                            // Only retry if TUS didn't already handle it
+                            if (file.progress &&
+                                file.progress.uploadStarted &&
+                                !file.progress.uploadComplete &&
+                                !pendingRetries.has(file.id)) // ✅ Prevent duplicate retries
+                            {
+                                pendingRetries.add(file.id);
+
+                                try {
+                                    uppy.retryUpload(file.id);
+                                    retriedCount++;
+                                    log('Manual retry triggered for: ' + (file.meta.relativePath || file.name));
+
+                                    // Clear flag after 5 seconds
+                                    setTimeout(function () {
+                                        pendingRetries.delete(file.id);
+                                    }, 5000);
+                                } catch (e) {
+                                    pendingRetries.delete(file.id);
+                                    log('Could not retry ' + file.name + ': ' + (e.message || e));
+                                }
+                            }
+                        });
+
+                        if (retriedCount > 0) {
+                            log('Auto-retried ' + retriedCount + ' interrupted upload(s)');
+                        }
+                    }, 2000); // ✅ 2-second delay prevents race with TUS retry
+                }
+
+                wasOnline = isOnline;
+            }
+
+            window.addEventListener('online', updateNetworkStatus);
+            window.addEventListener('offline', updateNetworkStatus);
+
+            // Poll network status every 5 seconds as backup
+            setInterval(updateNetworkStatus, 5000);
+        })();
+
+        // ================== MANUAL RETRY FUNCTIONALITY ==================
+        $(document).ready(function(){
+            // Add retry button handler if it exists
+            var retryBtn = document.getElementById('retryAllBtn');
+            if(retryBtn){
+                retryBtn.addEventListener('click', function(){
+                    var files = uppy.getFiles();
+                    var retried = 0;
+
+                    files.forEach(function(file){
+                        if(file.error){
+                            try{
+                                uppy.retryUpload(file.id);
+                                retried++;
+                                log('🔄 Manually retrying: ' + (file.meta.relativePath || file.name));
+                            }catch(e){
+                                log('❌ Could not retry ' + file.name + ': ' + (e.message || e));
+                            }
+                        }
+                    });
+
+                    var statusSpan = document.getElementById('retryStatus');
+                    if(statusSpan){
+                        if(retried > 0){
+                            statusSpan.textContent = 'Retrying ' + retried + ' file(s)...';
+                            setTimeout(function(){ statusSpan.textContent = ''; }, 5000);
+                        } else {
+                            statusSpan.textContent = 'No failed uploads to retry.';
+                            setTimeout(function(){ statusSpan.textContent = ''; }, 3000);
+                        }
+                    }
+                });
+            }
+
+            // Show/hide retry panel based on upload state
+            uppy.on('upload-error', function(file, err){
+                var panel = document.getElementById('retryPanel');
+                if(panel) panel.style.display = 'block';
+            });
+
+            uppy.on('complete', function(result){
+                if(result.failed.length === 0){
+                    var panel = document.getElementById('retryPanel');
+                    if(panel) panel.style.display = 'none';
+                }
+            });
+        });
+
+    })();
+    </script>
+
+
+
+
+
+
+
+
+    <script type="text/javascript">
+    $(document).ready(function () {
+        // ===================================================================
+        // == Helper Functions & UI State (Retained for non-upload features)
+        // ===================================================================
+
+        // Note: Some helper functions might be used by retained features like Zipping progress.
+        function formatBytes(bytes, decimals) { if (bytes === 0) return '0 Bytes'; var k = 1024; var dm = decimals === undefined ? 2 : decimals; var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB']; var i = Math.floor(Math.log(bytes) / Math.log(k)); return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]; }
+
+        // Generic message display function used by various features
+        if (typeof window.showMessage !== 'function') {
+            window.showMessage = function (text, type, timeoutMs) {
+                type = type || 'info';
+                timeoutMs = timeoutMs || 4000;
+                var $c = $('#actionFeedback');
+                if (!$c.length) {
+                    $('body').append('<div id="actionFeedback" style="position:fixed;top:15px;right:15px;z-index:30000;width:280px;"></div>');
+                    $c = $('#actionFeedback');
+                }
+                var $box = $('<div class="alert alert-' + type + ' alert-dismissible" style="margin-bottom:8px;padding:10px 12px;">' +
+                    '<button type="button" class="close" data-dismiss="alert">&times;</button>' +
+                    $('<div/>').text(text).html() + '</div>');
+                $c.append($box);
+                setTimeout(function(){ $box.fadeOut(400, function(){ $(this).remove(); }); }, timeoutMs);
+            };
+        }
+
+        // Selector for upload destination folder ID, retained for context
+        var $uploadFolderId = $("#uploadFolderId");
+
+
+        // ===================================================================
+        // == FOLDER NAVIGATION AND MANAGEMENT
+        // ===================================================================
+
+        function loadFolder(folderIdToLoad, isPickerMode) {
+            if (typeof isPickerMode === 'undefined') {
+                var searchParams = new URLSearchParams(window.location.search);
+                isPickerMode = searchParams.get('picker') === 'true';
+            }
+
+            var url = '@Url.Action("GetFolderContents", "File")';
+            var data = { folderId: folderIdToLoad, picker: isPickerMode };
+
+            if (window.GlobalLoading) GlobalLoading.show('Loading folder contents...');
+
+            $("#folderContentsWrapper").html('<div class="alert alert-info">Loading...</div>');
+            $.get(url, data, function (html) {
+                $("#folderContentsWrapper").html(html);
+                var newFolderName = $("#currentFolderNameFromPartial").val();
+                var newFolderId = $("#currentFolderIdFromPartial").val();
+                $("#uploadFolderName").text(newFolderName || "My Drive");
+                $uploadFolderId.val(newFolderId);
+                $("#currentFolderNameHeader").text(newFolderName || "All Drives");
+                $(".list-group-item").removeClass("active");
+                if (newFolderId != 0) {
+                    $('.list-group-item[data-folderid="' + newFolderId + '"]').addClass("active");
+                }
+                var newUrl = '@Url.Action("Index", "Home")';
+                var params = [];
+                if (newFolderId && newFolderId != 0) {
+                    params.push('folderId=' + newFolderId);
+                }
+                if (isPickerMode) {
+                    params.push('picker=true');
+                }
+                if (params.length > 0) {
+                    newUrl += '?' + params.join('&');
+                }
+                history.pushState({ folderId: newFolderId, picker: isPickerMode }, '', newUrl);
+                bindDynamicContentEvents();
+            }).fail(function () {
+                $("#folderContentsWrapper").html('<div class="alert alert-danger">Failed to load folder contents.</div>');
+            }).always(function () {
+                if (window.GlobalLoading) GlobalLoading.hide();
+            });
+        }
+
+        function bindCreateFolderEvents() {
+            $("#createFolderButton").off("click").on("click", function () {
+                $("#newFolderName").val("");
+                $("#createFolderError").text("").hide();
+                $("#createFolderModal").modal("show");
+            });
+            $("#createFolderBtnModal").off("click").on("click", function () {
+                var folderName = $("#newFolderName").val(),
+                    parentFolderId = $uploadFolderId.val(),
+                    $errorDiv = $("#createFolderError");
+                if (!folderName || folderName.trim() === "") {
+                    $errorDiv.text("Folder name cannot be empty.").show();
+                    return;
+                }
+                $.ajax({
+                    url: '@Url.Action("CreateFolder", "File")',
+                    type: "POST",
+                    data: { folderName: folderName, parentFolderId: parentFolderId },
+                    beforeSend: function () {
+                        if (window.GlobalLoading) GlobalLoading.show('Creating folder...');
+                    }
+                })
+                    .done(function (response) {
+                        if (response.success) {
+                            $("#createFolderModal").modal("hide");
+                            loadFolder(parentFolderId, @(Model.IsPickerModel.ToString().ToLower()));
+                        } else {
+                            $errorDiv.text(response.message || "An unknown error occurred.").show();
+                        }
+                    })
+                    .fail(function () {
+                        $errorDiv.text("A server error occurred. Please try again.").show();
+                    })
+                    .always(function () {
+                        if (window.GlobalLoading) GlobalLoading.hide();
+                    });
+            });
+        }
+
+        function bindFolderNavigationEvents() {
+            $(".list-group, #folderContentsWrapper")
+                .off("click", ".folder-row")
+                .off("dblclick", ".folder-row");
+
+            $("#folderContentsWrapper").on("click", ".folder-row", function (e) {
+                if ($(this).hasClass("nav-up")) {
+                    navigateToFolder($(this).data("folderid"));
+                    return;
+                }
+                if ($(e.target).is("input[type=checkbox]") || $(e.target).closest("input[type=checkbox]").length) {
+                    return;
+                }
+                var $chk = $(this).find(".folder-select-checkbox");
+                if ($chk.length) {
+                    var newVal = !$chk.prop("checked");
+                    $chk.prop("checked", newVal).trigger("change");
+                }
+            });
+
+            $("#folderContentsWrapper").on("dblclick", ".folder-row", function (e) {
+                if ($(e.target).is("input[type=checkbox]") || $(e.target).closest("input[type=checkbox]").length) {
+                    return;
+                }
+                var folderId = $(this).data("folderid");
+                if (folderId !== "" && folderId !== undefined) {
+                    navigateToFolder(folderId);
+                }
+            });
+
+            function navigateToFolder(folderId) {
+                var searchParams = new URLSearchParams(window.location.search);
+                var isPickerMode = searchParams.get('picker') === 'true';
+
+                if (folderId === "" || folderId === null || typeof folderId === "undefined") {
+                    loadFolder(null, isPickerMode);
+                    $("#folderContentsWrapper").html('<div class="alert alert-info">Select a drive from the left to view its contents.</div>');
+                    $("#currentFolderNameHeader").text("All Drives");
+                    history.pushState({ folderId: null }, '', '@Url.Action("Index", "Home")' + (isPickerMode ? '?picker=true' : ''));
+                } else {
+                    loadFolder(folderId, isPickerMode);
+                }
+            }
+        }
+
+        // ===================================================================
+        // == MULTI-SELECT AND ACTION BUTTONS (ZIP, SHARE, ETC.)
+        // ===================================================================
+
+        function masterCheckboxSync(){
+            var allSelectable = $('.file-select-checkbox, .folder-select-checkbox').not(':disabled');
+            var checkedCount = allSelectable.filter(':checked').length;
+            $('#selectAllFiles').prop('checked', allSelectable.length > 0 && checkedCount === allSelectable.length);
+            updateActionButtonsVisibility();
+        }
+
+        $(document).off("change.folderSelection").on("change.folderSelection", ".folder-select-checkbox", masterCheckboxSync);
+        $(document).off("change.fileSelection").on("change.fileSelection", ".file-select-checkbox", masterCheckboxSync);
+        $(document).off('change.selectAll').on('change.selectAll', '#selectAllFiles', function(){
+            var checked = $(this).prop('checked');
+            $('.file-select-checkbox, .folder-select-checkbox').prop('checked', checked).trigger('change');
+        });
+
+        function updateActionButtonsVisibility() {
+            var fileCount = $('.file-select-checkbox:checked').length;
+            var folderCount = $('.folder-select-checkbox:checked').length;
+            var any = (fileCount + folderCount) > 0;
+            $('#zipSelectedButton').toggle(any);
+            $('#shareSelectedButton').toggle(fileCount > 0);
+        }
+
+        function bindZipSelectionEvents() {
+            $('#zipSelectedButton').off('click').on('click', function () {
+                var fileIds = $('.file-select-checkbox:checked').map(function () { return $(this).data('fileid'); }).get();
+                var folderIds = $('.folder-select-checkbox:checked').map(function () { return $(this).data('folderid'); }).get();
+
+                if (fileIds.length === 0 && folderIds.length === 0) return;
+
+                $('#zipFileCount').text(fileIds.length + " file(s), " + folderIds.length + " folder(s)");
+                $('#zipFileName').val('');
+                $('#zipFilesError').hide();
+                $('#zipFilesModal').data('mixed-file-ids', fileIds);
+                $('#zipFilesModal').data('mixed-folder-ids', folderIds);
+                $('#zipFilesModal').modal('show');
+            });
+
+            $('#createZipBtnModal').off('click').on('click', function () {
+                var $btn = $(this);
+                var fileIds = $('#zipFilesModal').data('mixed-file-ids') || [];
+                var folderIds = $('#zipFilesModal').data('mixed-folder-ids') || [];
+                var zipFileName = $('#zipFileName').val();
+                var destFolderId = $('#uploadFolderId').val();
+                var $errorDiv = $('#zipFilesError');
+
+                if (fileIds.length === 0 && folderIds.length === 0) {
+                    $errorDiv.text("Nothing selected.").show(); return;
+                }
+
+                $btn.prop('disabled', true).text('Queuing...');
+                $errorDiv.hide();
+
+                $.ajax({
+                    url: '@Url.Action("ZipSelection", "File")',
+                    type: 'POST',
+                    traditional: true,
+                    data: { fileIds: fileIds, folderIds: folderIds, zipFileName: zipFileName, destinationFolderId: destFolderId },
+                    beforeSend: function () {
+                        if (window.GlobalLoading) GlobalLoading.show('Queueing ZIP job...');
+                    }
+                })
+                    .done(function (resp) {
+                        if (resp.success) {
+                            $('#zipFilesModal').modal('hide');
+                            var initialStatus = resp.deferred ? 'Scheduled (Server busy' + (resp.reason ? ': ' + resp.reason : '') + ')' : 'Queued';
+                            if (resp.deferred) showMessage('Server is busy. Your ZIP request has been safely queued.', 'warning', 6000);
+
+                            var html =
+                                '<div class="ongoing-process-item" data-zip-id="' + resp.fileId + '" style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #eee;display:none;">' +
+                                '<p style="margin:0 0 4px;"><strong>File:</strong> ' + resp.fileName + '<br><small>Status: <span class="status-text">' + initialStatus + '</span></small></p>' +
+                                '<div class="progress" style="height:15px;"><div class="progress-bar" role="progressbar" style="width:0%;">0%</div></div>' +
+                                '</div>';
+
+                            $('#zipping-process-panel').show().find('.panel-body').prepend(html);
+                            $('.ongoing-process-item[data-zip-id="' + resp.fileId + '"]').slideDown();
+                            startPollingForZip(resp.fileId);
+                        } else {
+                            $errorDiv.text(resp.message || "Failed to start zip.").show();
+                        }
+                    })
+                    .fail(function () {
+                        $errorDiv.text("Server error starting zip.").show();
+                    })
+                    .always(function () {
+                        $btn.prop('disabled', false).text('Create ZIP');
+                        if (window.GlobalLoading) GlobalLoading.hide();
+                    });
+            });
+        }
+
+        // ===================================================================
+        // == ZIPPING PROGRESS POLLING
+        // ===================================================================
+
+        var ongoingZipPollers = {};
+
+        function startPollingForZip(fileId) {
+            if (ongoingZipPollers[fileId]) return;
+            console.log("Starting real-time progress monitoring for zip job ID: " + fileId);
+            pollZippingProcess(fileId);
+            ongoingZipPollers[fileId] = setInterval(function () { pollZippingProcess(fileId); }, 3000);
+        }
+
+        function pollZippingProcess(fileId) {
+            var $item = $('.ongoing-process-item[data-zip-id="' + fileId + '"]');
+            if (!$item.length) {
+                clearInterval(ongoingZipPollers[fileId]);
+                delete ongoingZipPollers[fileId];
+                return;
+            }
+
+            $.get('@Url.Action("GetZippingProgress", "File")', { fileId: fileId })
+                .done(function (response) {
+                    if (response && response.success) {
+                        var $progressBar = $item.find('.progress-bar');
+                        var $statusText = $item.find('.status-text');
+                        var progress = response.progress < 0 ? 100 : response.progress;
+                        var stage = response.stage || 'Processing';
+                        var color = response.progress < 0 ? '#d9534f' : '#5bc0de';
+
+                        $statusText.text((response.processedFiles != null && response.totalFiles != null && stage.toLowerCase() !== 'completed') ?
+                            (stage + " " + response.processedFiles + "/" + response.totalFiles) : stage);
+
+                        var barLabel = stage + ': ' + progress + '%';
+                        if (response.processedFiles != null && response.totalFiles != null && stage === 'Staging') {
+                             barLabel = stage + ' ' + response.processedFiles + '/' + response.totalFiles + ' (' + progress + '%)';
+                        }
+                        $progressBar.css({ 'width': progress + '%', 'background-color': color }).text(barLabel);
+
+                        if (response.isDone) {
+                            clearInterval(ongoingZipPollers[fileId]);
+                            delete ongoingZipPollers[fileId];
+                            $progressBar.css({ 'width': '100%', 'background-color': '#5cb85c' }).text('Completed');
+                            $statusText.text('Completed');
+                            setTimeout(function () {
+                                $item.slideUp(500, function () { $(this).remove(); });
+                                if ($('#zipping-process-panel .ongoing-process-item').length === 0) {
+                                    $('#zipping-process-panel').slideUp();
+                                }
+                                loadFolder($('#uploadFolderId').val());
+                            }, 5000);
+                        }
+                    } else {
+                        clearInterval(ongoingZipPollers[fileId]);
+                        delete ongoingZipPollers[fileId];
+                    }
+                });
+        }
+
+        function initializeOngoingZippingMonitoring() {
+            $('.ongoing-process-item[data-zip-id]').each(function () {
+                var zipFileId = $(this).data('zip-id');
+                if (zipFileId) {
+                    console.log("Found existing zip job on page load. ID: " + zipFileId + ". Re-attaching poller.");
+                    startPollingForZip(zipFileId);
+                }
+            });
+        }
+
+        // ===================================================================
+        // == SHARING MODAL LOGIC
+        // ===================================================================
+
+        function bindShareModal() {
+            var $shareModal = $("#shareModal"),
+                $sharePasswordInput = $("#sharePasswordModal"),
+                $generatedLinkContainer = $("#generatedLinkContainer"),
+                $generatedLinkText = $("#generatedLinkText"),
+                $generatedPasswordContainer = $("#generatedPasswordContainer"),
+                $generatedPasswordText = $("#generatedPasswordText"),
+                $protectCheckbox = $('#protectLinkCheckbox'),
+                $passwordInputContainer = $('#sharePasswordInputContainer'),
+                $scopeHelpText = $('#shareScopeHelp'),
+                $shareStatusMessage = $("#shareStatusMessage"),
+                $publicOptionsSection = $('#publicOptionsSection'),
+                $restrictToEmailsCheckbox = $('#restrictToEmailsCheckbox'),
+                $recipientEmailsSection = $('#recipientEmailsSection'),
+                $internalOptionsSection = $('#internalOptionsSection'),
+                $recipientUserIdsSection = $('#recipientUserIdsSection'),
+                isPicker = @Model.IsPickerModel.ToString().ToLower();
+
+            var canShareInternal = !!(window.deptPolicy && window.deptPolicy.canShareInternal);
+            var canShareExternal = !!(window.deptPolicy && window.deptPolicy.canShareExternal);
+
+            // Enforce allowed scopes in UI
+            function enforceAllowedScopes() {
+                var $orgRadio = $('input[name="ShareScope"][value="Organization"]');
+                var $pubRadio = $('input[name="ShareScope"][value="Public"]');
+
+                // Enable/disable radios based on policy
+                $orgRadio.prop('disabled', !canShareInternal);
+                $pubRadio.prop('disabled', !canShareExternal);
+
+                // If current selection is disabled, flip to allowed one
+                var current = $('input[name="ShareScope"]:checked').val();
+                if (current === 'Organization' && !canShareInternal && canShareExternal) {
+                    $pubRadio.prop('checked', true);
+                }
+                if (current === 'Public' && !canShareExternal && canShareInternal) {
+                    $orgRadio.prop('checked', true);
+                }
+
+                // If neither is allowed (button should not have been visible), just keep both disabled
+            }
+
+            function updateControls() {
+                enforceAllowedScopes();
+                var isPublic = $('input[name="ShareScope"]:checked').val() === 'Public';
+                var isOrganization = !isPublic;
+
+                $publicOptionsSection.toggle(isPublic);
+                $internalOptionsSection.toggle(isOrganization);
+
+                if (isPublic) {
+                    // Public always requires password in our policy
+                    $protectCheckbox.prop('checked', true).prop('disabled', true);
+                    $scopeHelpText.text('Anyone with the link and password can access. Optionally restrict to specific emails.');
+                } else {
+                    $protectCheckbox.prop('disabled', false);
+                    $scopeHelpText.text('Default: all organization users can access. To limit access, provide specific User IDs below.');
+                }
+
+                var showEmailList = isPublic && $restrictToEmailsCheckbox.is(':checked');
+                $recipientEmailsSection.toggle(showEmailList);
+                $passwordInputContainer.toggle($protectCheckbox.is(':checked'));
+            }
+
+            function resetShareModal() {
+                // Default selection respects allowed scopes
+                var $orgRadio = $('input[name="ShareScope"][value="Organization"]');
+                var $pubRadio = $('input[name="ShareScope"][value="Public"]');
+
+                if (canShareExternal && !canShareInternal) {
+                    $pubRadio.prop('checked', true);
+                } else if (canShareInternal && !canShareExternal) {
+                    $orgRadio.prop('checked', true);
+                } else {
+                    // both allowed, default to Organization
+                    $orgRadio.prop('checked', true);
+                }
+
+                $protectCheckbox.prop('checked', true);
+                $restrictToEmailsCheckbox.prop('checked', false);
+                $sharePasswordInput.val('');
+                $('#shareRecipientEmails').val('');
+                $('#shareRecipientUserIds').val('');
+                $generatedLinkContainer.hide();
+                $generatedPasswordContainer.hide();
+                $shareStatusMessage.hide().text('').removeClass('alert-danger alert-success');
+                $('#shareFormInputs, #createShareLinkBtnModal').show();
+
+                updateControls();
+            }
+
+            $('input[name="ShareScope"], #protectLinkCheckbox, #restrictToEmailsCheckbox').off('change.share').on('change.share', updateControls);
+
+            $("#shareSelectedButton").off("click").on("click", function () {
+                var selectedCount = $('.file-select-checkbox:checked').length;
+                if (selectedCount === 0) return;
+
+                $("#shareModalFileName").text(selectedCount + (selectedCount > 1 ? " files" : " file"));
+                resetShareModal();
+                $shareModal.modal("show");
+            });
+
+            $("#createShareLinkBtnModal").off("click").on("click", function (e) {
+                e.preventDefault();
+                var $createBtn = $(this);
+                if ($createBtn.is(':disabled')) return;
+                $createBtn.prop('disabled', true).html('<i class="glyphicon glyphicon-hourglass"></i> Creating...');
+                $shareStatusMessage.hide().text('');
+
+                var selectedFileIds = $('.file-select-checkbox:checked').map(function () { return $(this).data('fileid'); }).get();
+                if (selectedFileIds.length === 0) {
+                    $shareStatusMessage.text("No files were selected.").removeClass('alert-success').addClass('alert-danger').show();
+                    $createBtn.prop('disabled', false).html('Create Link'); return;
+                }
+
+                var scope = $('input[name="ShareScope"]:checked').val();
+                // Guard against manipulated UI
+                if (scope === 'Organization' && !canShareInternal) {
+                    $shareStatusMessage.text("Internal sharing is disabled for your department.").removeClass('alert-success').addClass('alert-danger').show();
+                    $createBtn.prop('disabled', false).html('Create Link'); return;
+                }
+                if (scope === 'Public' && !canShareExternal) {
+                    $shareStatusMessage.text("External sharing is disabled for your department.").removeClass('alert-success').addClass('alert-danger').show();
+                    $createBtn.prop('disabled', false).html('Create Link'); return;
+                }
+
+                var postData = {
+                    __RequestVerificationToken: $("#shareLinkForm input[name='__RequestVerificationToken']").val(),
+                    FileIds: selectedFileIds,
+                    ProtectWithPassword: $protectCheckbox.is(':checked'),
+                    Password: $sharePasswordInput.val(),
+                    ExpiryOption: $("#shareExpiryModal").val(),
+                    ShareScope: scope,
+                    RecipientEmails: $("#shareRecipientEmails").val(),
+                    RecipientUserIds: $("#shareRecipientUserIds").val()
+                };
+
+                $.ajax({
+                    url: '@Url.Action("Create", "ShareableLink")',
+                    type: "POST",
+                    data: postData
+                }).done(function (resp) {
+                    if (resp.success) {
+                        $shareStatusMessage.text('Link has been created successfully.')
+                            .removeClass('alert-danger').addClass('alert-success').show();
+                        $generatedLinkText.val(resp.data.link);
+                        $("#generatedLinkContainer").show();
+                        if (resp.data.linkPassword) {
+                            $generatedPasswordText.val(resp.data.linkPassword);
+                            $("#generatedPasswordContainer").show();
+                        }
+                    } else {
+                        $shareStatusMessage.text('Failed to create link: ' + (resp.message || "Unknown error."))
+                            .removeClass('alert-success').addClass('alert-danger').show();
+                    }
+                }).fail(function () {
+                    $shareStatusMessage.text("An unexpected server error occurred. Please try again.")
+                        .removeClass('alert-success').addClass('alert-danger').show();
+                }).always(function () {
+                    if (!$shareStatusMessage.hasClass('alert-success')) {
+                        $createBtn.prop('disabled', false).html('Create Link');
+                    }
+                });
+            });
+        }
+
+        // ===================================================================
+        // == CLIPBOARD (CUT/COPY/PASTE) AND RENAME LOGIC
+        // ===================================================================
+
+        const CLIPBOARD_STORAGE_KEY = 'bobdriveClipboardV1';
+        var clipboard = { mode: null, fileIds: [], folderIds: [] };
+        window.clipboard = clipboard; // keep a global reference
+        window._ctxTarget = null; // Target of the context menu click
+
+        function persistClipboard() {
+            try {
+                sessionStorage.setItem(CLIPBOARD_STORAGE_KEY, JSON.stringify({ mode: clipboard.mode, fileIds: clipboard.fileIds, folderIds: clipboard.folderIds }));
+            } catch (e) { /* ignore */ }
+        }
+        function restoreClipboard() {
+            try {
+                const raw = sessionStorage.getItem(CLIPBOARD_STORAGE_KEY);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    if (data && (data.fileIds?.length || data.folderIds?.length) && (data.mode === 'copy' || data.mode === 'cut')) {
+                        clipboard = data;
+                        window.clipboard = clipboard; // refresh the global reference
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function getCurrentFolderId(){ return parseInt($('#uploadFolderId').val(),10)||0; }
+        function isCurrentFolderRoot(){ return $('#isCurrentFolderRoot').val() === 'true'; }
+        function isViewingOwnDrive() { return $('#isCurrentUserInOwnFolder').val() === 'true'; }
+
+        function getSelectedFileIds(){
+            var ids=[];
+            $('.file-select-checkbox:checked').each(function(){ ids.push(parseInt($(this).data('fileid'),10)); });
+            if(!ids.length && window._ctxTarget && window._ctxTarget.hasClass('file-row')){ ids.push(parseInt(window._ctxTarget.data('fileid'),10)); }
+            return ids.filter(id => !isNaN(id));
+        }
+
+        function getSelectedFolderIds(){
+            var ids=[];
+            $('.folder-select-checkbox:checked').each(function(){ if ($(this).data('folder-name') !== '..') ids.push(parseInt($(this).data('folderid'),10)); });
+            if (!ids.length && window._ctxTarget && window._ctxTarget.hasClass('folder-row') && !window._ctxTarget.hasClass('nav-up')) { ids.push(parseInt(window._ctxTarget.data('folderid'),10)); }
+            return ids.filter(id => !isNaN(id));
+        }
+
+        var $contextMenu = $('#clipboardContextMenu');
+        var $cmCopy = $('#cmCopy'), $cmCut = $('#cmCut'), $cmPaste = $('#cmPaste'), $cmRename = $('#cmRename');
+
+        // Bind Delete in the main context menu section (NOT inside Uppy blocks)
+        var $cmDelete = $('#cmDelete');
+
+        $cmDelete.off('click').on('click', function () {
+            if ($(this).hasClass('disabled')) return;
+            hideMenu();
+
+            var fileIds = getSelectedFileIds();
+            var folderIds = getSelectedFolderIds();
+            if (fileIds.length === 0 && folderIds.length === 0) {
+                showMessage('Nothing selected to delete.', 'warning');
+                return;
+            }
+
+            // Optional confirm for soft-delete to Bin
+            if (!confirm('Move selected item(s) to Bin?')) return;
+
+            // Optimistic UI removal
+            fileIds.forEach(function (id) { $('[data-fileid="' + id + '"]').closest('tr').remove(); });
+            folderIds.forEach(function (id) { $('[data-folderid="' + id + '"]').closest('tr').remove(); });
+
+            $.ajax({
+                url: '@Url.Action("StartDelete","File")',
+                type: 'POST',
+                traditional: true,
+                data: {
+                    __RequestVerificationToken: $("input[name='__RequestVerificationToken']").val(),
+                    fileIds: fileIds,
+                    folderIds: folderIds
+                }
+            }).done(function (resp) {
+                if (resp && resp.success) {
+                    showMessage('Delete scheduled. Items moved to Bin.', 'info');
+                } else {
+                    showMessage((resp && resp.message) || 'Failed to schedule delete.', 'danger');
+                    setTimeout(function () { location.reload(); }, 1200);
+                }
+            }).fail(function () {
+                showMessage('Server error scheduling delete.', 'danger');
+                setTimeout(function () { location.reload(); }, 1200);
+            });
+        });
+
+        function hideMenu(){ $contextMenu.hide(); }
+
+        function showMenu(x, y) {
+            var isInOwnDrive = isViewingOwnDrive();
+            var selFileIds = getSelectedFileIds();
+            var selFolderIds = getSelectedFolderIds();
+            var totalSelection = selFileIds.length + selFolderIds.length;
+
+            var canCopy = totalSelection > 0;
+            var canCut = isInOwnDrive && totalSelection > 0;
+            var canRename = isInOwnDrive && totalSelection === 1;
+            var canPaste = isInOwnDrive && clipboard.mode && (clipboard.fileIds.length > 0 || clipboard.folderIds.length > 0);
+
+            $cmCopy.toggleClass('disabled', !canCopy);
+            $cmCut.toggleClass('disabled', !canCut);
+            $cmRename.toggleClass('disabled', !canRename);
+            $cmPaste.toggleClass('disabled', !canPaste);
+
+            $contextMenu.css({ top: y + 'px', left: x + 'px' }).show();
+        }
+
+        $(document).off('contextmenu.multiselectCtx').on('contextmenu.multiselectCtx', function(e){
+            if(!$(e.target).closest('#folderContentsWrapper, .file-row, .folder-row, table').length){ hideMenu(); return; }
+            e.preventDefault();
+            var $row = $(e.target).closest('.file-row, .folder-row');
+            window._ctxTarget = $row.length ? $row : null;
+
+            if ($row.length) {
+                var isChecked = $row.find('.file-select-checkbox, .folder-select-checkbox').prop('checked');
+                if (!isChecked) {
+                    $('.file-select-checkbox, .folder-select-checkbox').prop('checked', false);
+                    $row.find('.file-select-checkbox, .folder-select-checkbox').prop('checked', true);
+                    masterCheckboxSync();
+                }
+            }
+            showMenu(e.pageX, e.pageY);
+        });
+
+        $(document).on('click', function(e){ if(!$(e.target).closest('#clipboardContextMenu').length) hideMenu(); });
+        $('#cmCancel').on('click', hideMenu);
+
+        $cmCopy.off('click').on('click', function () {
+            if ($(this).hasClass('disabled')) return;
+            hideMenu();
+            clipboard.mode = 'copy';
+            clipboard.fileIds = getSelectedFileIds();
+            clipboard.folderIds = getSelectedFolderIds();
+            persistClipboard();
+            showMessage('Items copied.', 'success');
+        });
+
+        $cmCut.off('click').on('click', function () {
+            if ($(this).hasClass('disabled')) return;
+            hideMenu();
+            clipboard.mode = 'cut';
+            clipboard.fileIds = getSelectedFileIds();
+            clipboard.folderIds = getSelectedFolderIds();
+            persistClipboard();
+            showMessage('Items marked to move.', 'info');
+        });
+
+        var $pasteModal = $('#pasteModal');
+        window.pendingPasteDestination = null;
+
+        $cmPaste.off('click').on('click', function () {
+            if ($cmPaste.hasClass('disabled')) return;
+            hideMenu();
+            if (!clipboard.mode) return;
+
+            var ctx = window._ctxTarget;
+            var destId, destLabel;
+            if (ctx && ctx.hasClass('folder-row') && !ctx.hasClass('nav-up')) {
+                destId = parseInt(ctx.data('folderid'), 10);
+                destLabel = ctx.data('folder-name') || ctx.text().trim();
+            } else {
+                destId = getCurrentFolderId();
+                destLabel = $('#currentFolderNameHeader').text().trim() || 'Current Folder';
+            }
+            window.pendingPasteDestination = destId;
+
+            if (isNaN(window.pendingPasteDestination)) { showMessage('Invalid destination.', 'danger'); return; }
+
+            var summary = [];
+            if (clipboard.fileIds.length) summary.push(clipboard.fileIds.length + ' file(s)');
+            if (clipboard.folderIds.length) summary.push(clipboard.folderIds.length + ' folder(s)');
+            $('#pasteSummary').text('You are about to ' + clipboard.mode + ' ' + summary.join(' and ') + '.');
+
+            // Show resolved destination label in the modal textbox
+            $('#pasteDestinationName').val(destLabel);
+
+            $('#pasteWarning, #pasteProgress').hide();
+            $('#pasteButtons').show();
+            $pasteModal.modal('show');
+        });
+
+        // Replace your existing paste-confirm handler with this
+        $('#pasteConfirmBtn').off('click').on('click', function () {
+            var mode = clipboard && clipboard.mode;
+            var destinationFolderId = window.pendingPasteDestination || getCurrentFolderId();
+            var fileIds = (clipboard && clipboard.fileIds) || [];
+            var folderIds = (clipboard && clipboard.folderIds) || [];
+
+
+            if (!mode || (fileIds.length === 0 && folderIds.length === 0)) {
+                $('#pasteWarning').text('Nothing to paste.').show();
+                return;
+            }
+
+            // Show destination name clearly
+            try {
+                var $ctx = window._ctxTarget && window._ctxTarget.length ? window._ctxTarget : null;
+                var destName = '';
+                if ($ctx && $ctx.hasClass('folder-row') && !$ctx.hasClass('nav-up')) {
+                    destName = $ctx.data('folder-name') || $ctx.text().trim();
+                } else {
+                    destName = $('#currentFolderNameHeader').text().trim();
+                }
+                $('#pasteDestinationName').val(destName);
+            } catch (e) { }
+
+            $('#pasteWarning').hide();
+            $('#pasteProgress').show();
+            $('#pasteButtons').hide();
+
+            $.ajax({
+                url: '@Url.Action("StartPaste","File")',
+                type: 'POST',
+                traditional: true,
+                data: {
+                    __RequestVerificationToken: $("input[name='__RequestVerificationToken']").val(),
+                    mode: mode,
+                    destinationFolderId: destinationFolderId,
+                    fileIds: fileIds,
+                    folderIds: folderIds
+                }
+            }).done(function (resp) {
+                if (resp && resp.success) {
+                    var opId = resp.opId;
+                    var timer = setInterval(function () {
+                        $.get('@Url.Action("GetPasteProgress","File")', { opId: opId })
+                            .done(function (pg) {
+                                if (!pg || !pg.success) return;
+                                var pct = pg.percent || 0;
+                                var processed = pg.processed || 0;
+                                var total = pg.total || 0;
+                                var stage = pg.stage || 'Processing';
+                                var cur = pg.currentItem || '';
+                                $('#pasteDestinationName').val(pg.destinationPath || $('#pasteDestinationName').val());
+                                $('#pasteProgress .progress-bar').css('width', pct + '%')
+                                    .text(stage + ' ' + processed + '/' + total + (cur ? (' — ' + cur) : ''));
+
+                                if (pg.isDone) {
+                                    clearInterval(timer);
+                                    if (pg.error) {
+                                        $('#pasteWarning').text(pg.error).show();
+                                        $('#pasteProgress').hide();
+                                        $('#pasteButtons').show();
+                                    } else {
+                                        setTimeout(function () {
+                                            $('#pasteModal').modal('hide');
+                                            var folderId = $('#uploadFolderId').val();
+                                            if (typeof loadFolder === 'function') loadFolder(folderId, @(Model.IsPickerModel.ToString().ToLower()));
+                                            else location.reload();
+                                        }, 500);
+                                    }
+                                }
+                            });
+                    }, 1000);
+                } else {
+                    $('#pasteWarning').text((resp && resp.message) || 'Failed to start paste.').show();
+                    $('#pasteProgress').hide();
+                    $('#pasteButtons').show();
+                }
+            }).fail(function () {
+                $('#pasteWarning').text('Server error starting paste.').show();
+                $('#pasteProgress').hide();
+                $('#pasteButtons').show();
+            });
+        });
+
+        $('#cmRename').off('click').on('click', function () {
+            if ($(this).hasClass('disabled')) return;
+            hideMenu();
+            var fileIds = getSelectedFileIds();
+            var folderIds = getSelectedFolderIds();
+            var $target = window._ctxTarget;
+            var targetId, currentName, targetType;
+
+            if(fileIds.length === 1 && folderIds.length === 0){
+                targetType = 'file';
+                targetId = fileIds[0];
+                currentName = $('[data-fileid="' + targetId + '"]').closest('tr').data('file-name');
+            } else if (folderIds.length === 1 && fileIds.length === 0){
+                targetType = 'folder';
+                targetId = folderIds[0];
+                currentName = $('[data-folderid="' + targetId + '"]').closest('tr').data('folder-name');
+            } else {
+                showMessage('Please select a single file or folder to rename.', 'info');
+                return;
+            }
+
+            if(currentName === '..'){ showMessage('Cannot rename this item.', 'warning'); return; }
+
+            $('#renameTargetType').val(targetType);
+            $('#renameTargetId').val(targetId);
+            $('#renameNewName').val(currentName);
+            $('#renameError').hide();
+            $('#renameModalLabel').text('Rename ' + targetType);
+            $('#renameModal').modal('show');
+            setTimeout(function () { $('#renameNewName').focus().select(); }, 350);
+        });
+
+        $('#renameConfirmBtn').off('click').on('click', function () {
+            var targetType = $('#renameTargetType').val();
+            var targetId = parseInt($('#renameTargetId').val(), 10);
+            var newName = $('#renameNewName').val().trim();
+            if (!newName) { $('#renameError').text('Name cannot be empty.').show(); return; }
+            $('#renameError').hide();
+            $(this).prop('disabled', true).html('<i class="glyphicon glyphicon-hourglass"></i> Saving...');
+
+            var url = targetType === 'file' ? '@Url.Action("RenameFile","File")' : '@Url.Action("RenameFolder","File")';
+            $.post(url, { id: targetId, newName: newName })
+                .done(function (r) {
+                    if (r && r.success) {
+                        $('#renameModal').modal('hide');
+                        showMessage('Renamed successfully.', 'success');
+                        loadFolder(getCurrentFolderId(), @(Model.IsPickerModel.ToString().ToLower()));
+                    } else {
+                        $('#renameError').text(r ? r.message : 'Rename failed.').show();
+                    }
+                })
+                .fail(function () { $('#renameError').text('Server error during rename.').show(); })
+                .always(() => { $(this).prop('disabled', false).html('<i class="glyphicon glyphicon-floppy-disk"></i> Save'); });
+        });
+
+        // ===================================================================
+        // == INITIALIZATION AND EVENT BINDING
+        // ===================================================================
+
+        function bindMiscEvents() {
+            $("#folderContentsWrapper, #shareModal").off("click", ".copy-password-btn").on("click", ".copy-password-btn", function () { var copyText = $(this).closest('.input-group').find('input[type="text"]')[0]; copyText.select(); document.execCommand("copy"); var $btn = $(this); $btn.find('.glyphicon').removeClass('glyphicon-copy').addClass('glyphicon-ok'); setTimeout(function () { $btn.find('.glyphicon').removeClass('glyphicon-ok').addClass('glyphicon-copy'); }, 1500); }); $("#shareModal").off("click", "#copyLinkBtn").on("click", "#copyLinkBtn", function () { var copyText = document.getElementById("generatedLinkText"); copyText.select(); document.execCommand("copy"); });
+        }
+
+        function bindDynamicContentEvents() {
+            bindFolderNavigationEvents();
+            bindShareModal();
+            bindMiscEvents();
+            bindZipSelectionEvents();
+            updateActionButtonsVisibility();
+        }
+
+        // Handle browser back/forward buttons
+        window.onpopstate = function (event) {
+            var state = event.state;
+            if (state) {
+                loadFolder(state.folderId, state.picker);
+            } else {
+                var searchParams = new URLSearchParams(window.location.search);
+                var folderId = searchParams.get('folderId');
+                var isPicker = searchParams.get('picker') === 'true';
+                loadFolder(folderId, isPicker);
+                if (!folderId) {
+                    $("#folderContentsWrapper").html('<div class="alert alert-info">Select a drive from the left to view its contents.</div>');
+                }
+            }
+        };
+
+        // Initial Load
+        var initialFolderId = @(Model.CurrentFolder != null ? Model.CurrentFolder.Id.ToString() : "null");
+        var isInitialPicker = @(Model.IsPickerModel.ToString().ToLower());
+        if (initialFolderId) {
+            loadFolder(initialFolderId, isInitialPicker);
+        }
+
+        bindCreateFolderEvents();
+        initializeOngoingZippingMonitoring();
+        restoreClipboard();
+    });
+    </script>
+}

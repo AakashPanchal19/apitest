@@ -1,0 +1,308 @@
+﻿<!-- File: Views/AdminDashboard/Index.cshtml (NEW FILE) -->
+@model BOBDrive.ViewModels.Admin.AdminDashboardViewModel
+@{
+    ViewBag.Title = "Admin Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    .stat-panel {
+        transition: transform 0.2s;
+    }
+
+        .stat-panel:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+    .stat-icon {
+        font-size: 3em;
+        opacity: 0.8;
+    }
+
+    .stat-number {
+        font-size: 2em;
+        font-weight: bold;
+    }
+
+    .stat-label {
+        font-size: 0.9em;
+        text-transform: uppercase;
+    }
+</style>
+
+<h2><i class="glyphicon glyphicon-dashboard"></i> Admin Dashboard</h2>
+<hr />
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-md-3 col-sm-6">
+        <div class="panel panel-primary stat-panel">
+            <div class="panel-heading">
+                <div class="row">
+                    <div class="col-xs-3">
+                        <i class="glyphicon glyphicon-user stat-icon"></i>
+                    </div>
+                    <div class="col-xs-9 text-right">
+                        <div class="stat-number">@Model.TotalUsers</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                </div>
+            </div>
+            <a href="@Url.Action("Users", "AdminDashboard")" style="text-decoration: none;">
+                <div class="panel-footer">
+                    <span class="pull-left">View Details</span>
+                    <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                    <div class="clearfix"></div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+        <div class="panel panel-success stat-panel">
+            <div class="panel-heading">
+                <div class="row">
+                    <div class="col-xs-3">
+                        <i class="glyphicon glyphicon-file stat-icon"></i>
+                    </div>
+                    <div class="col-xs-9 text-right">
+                        <div class="stat-number">@Model.TotalFiles</div>
+                        <div class="stat-label">Total Files</div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-footer">
+                <span class="pull-left">@string.Format("{0:0.##} GB", (double)Model.TotalStorage / (1024 * 1024 * 1024))</span>
+                <span class="pull-right">Total Storage</span>
+                <div class="clearfix"></div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div class="col-md-3 col-sm-6">
+        <div class="panel panel-warning stat-panel">
+            <div class="panel-heading">
+                <div class="row">
+                    <div class="col-xs-3">
+                        <i class="glyphicon glyphicon-upload stat-icon"></i>
+                    </div>
+                    <div class="col-xs-9 text-right">
+                        <div class="stat-number">@Model.ActiveUploads</div>
+                        <div class="stat-label">Active Uploads</div>
+                    </div>
+                </div>
+            </div>
+            <a href="/hangfire" target="_blank" style="text-decoration: none;">
+                <div class="panel-footer">
+                    <span class="pull-left">View in Hangfire</span>
+                    <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                    <div class="clearfix"></div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+        <div class="panel panel-info stat-panel">
+            <div class="panel-heading">
+                <div class="row" id="adminStatsRow" style="margin-bottom:10px;">
+                    <div class="col-sm-3">
+                        <strong>Active uploads:</strong>
+                        <span id="adm-active-uploads">@Model.ActiveUploads</span>
+                    </div>
+                    <div class="col-sm-3">
+                        <strong>Active zips:</strong>
+                        <span id="adm-active-zips">@Model.ActiveZipJobs</span>
+                    </div>
+                    <div class="col-sm-3">
+                        <strong>Uploads (last hour):</strong>
+                        <span id="adm-up-last-hour">@Model.UploadsLastHour</span>
+                    </div>
+                    <div class="col-sm-3">
+                        <strong>Zips (last hour):</strong>
+                        <span id="adm-zip-last-hour">@Model.ZipsLastHour</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-md-3 col-sm-6">
+        <div class="panel panel-info stat-panel">
+            <div class="panel-heading">
+                <div class="row">
+                    <div class="col-xs-3">
+                        <i class="glyphicon glyphicon-cog stat-icon"></i>
+                    </div>
+                    <div class="col-xs-9 text-right">
+                        <div class="stat-number">@Model.TotalClientApps</div>
+                        <div class="stat-label">Client Apps</div>
+                    </div>
+                </div>
+            </div>
+            <a href="@Url.Action("ClientApplications", "AdminDashboard")" style="text-decoration: none;">
+                <div class="panel-footer">
+                    <span class="pull-left">Manage Integrations</span>
+                    <span class="pull-right"><i class="glyphicon glyphicon-circle-arrow-right"></i></span>
+                    <div class="clearfix"></div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<h2>Admin Dashboard</h2>
+
+<p>
+    <a href="@Url.Action("CreateDepartment", "AdminDashboard")" class="btn btn-success">
+        <i class="glyphicon glyphicon-plus"></i> Create Department
+    </a>
+
+    <a href="@Url.Action("PendingApprovals", "AdminDashboard")" class="btn btn-warning">
+        <i class="glyphicon glyphicon-user"></i> Pending Approvals
+    </a>
+</p>
+<p>
+    <a href="@Url.Action("ManageDepartmentHierarchy", "AdminDashboard")"
+       class="btn btn-info">
+        Manage Department Hierarchy
+    </a>
+</p>
+<p>
+    <a href="@Url.Action("Departments", "AdminDashboard")" class="btn btn-primary">
+        View All Departments
+    </a>
+</p>
+
+<!-- Existing tables/content below... -->
+<!-- Quick Links -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title"><i class="glyphicon glyphicon-link"></i> Quick Links</h3>
+            </div>
+            <div class="panel-body">
+                <div class="btn-group btn-group-justified" role="group">
+                    <a href="@Url.Action("Users", "AdminDashboard")" class="btn btn-default">
+                        <i class="glyphicon glyphicon-user"></i><br />Manage Users
+                    </a>
+                    <a href="@Url.Action("ClientApplications", "AdminDashboard")" class="btn btn-default">
+                        <i class="glyphicon glyphicon-cog"></i><br />Client Apps
+                    </a>
+                    <a href="@Url.Action("GenerateKey", "Admin")" class="btn btn-default">
+                        <i class="glyphicon glyphicon-plus"></i><br />New API Key
+                    </a>
+                    <a href="@Url.Action("SystemSettings", "AdminDashboard")" class="btn btn-default">
+                        <i class="glyphicon glyphicon-wrench"></i><br />Settings
+                    </a>
+                    <a href="@Url.Action("Index", "ServerMatrix")" class="btn btn-default">
+                        <i class="glyphicon glyphicon-stats"></i><br />Server Metrics
+                    </a>
+                    <a href="/hangfire" class="btn btn-default" target="_blank">
+                        <i class="glyphicon glyphicon-tasks"></i><br />Hangfire
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Users -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">
+                    <i class="glyphicon glyphicon-time"></i> Recent User Activity
+                    <span class="badge">@Model.RecentUsers.Count</span>
+                </h3>
+            </div>
+            <div class="panel-body">
+                @if (Model.RecentUsers.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>User ID</th>
+                                    <th>Full Name</th>
+                                    <th>Role</th>
+                                    <th>Last Login</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in Model.RecentUsers)
+                                {
+                                    <tr>
+                                        <td>@user.ExternalUserId</td>
+                                        <td>@user.FullName</td>
+                                        <td>
+                                            @if (user.Role == "Admin")
+                                            {
+                                                <span class="label label-danger">Admin</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="label label-default">User</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (user.LastLoginAt.HasValue)
+                                            {
+                                                @user.LastLoginAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Never</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a href="@Url.Action("EditUser", "AdminDashboard", new { id = user.Id })"
+                                               class="btn btn-xs btn-primary">
+                                                <i class="glyphicon glyphicon-edit"></i> Edit
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No users found.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script src="/signalr/hubs"></script>
+    <script type="text/javascript">
+        (function () {
+            var adminHub = $.connection.adminStatsHub;
+
+            adminHub.client.updateStats = function (data) {
+                if (!data) return;
+                $('#adm-active-uploads').text(data.activeUploads || 0);
+                $('#adm-active-zips').text(data.activeZips || 0);
+                $('#adm-up-last-hour').text(data.uploadsLastHour || 0);
+                $('#adm-zip-last-hour').text(data.zipsLastHour || 0);
+            };
+
+            $.connection.hub.start().done(function () {
+                // Optionally ask server to send an immediate snapshot:
+                if (adminHub.server && adminHub.server.requestSnapshot) {
+                    adminHub.server.requestSnapshot();
+                }
+            });
+        })();
+    </script>
+}

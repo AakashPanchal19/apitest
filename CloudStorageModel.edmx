@@ -1,0 +1,1308 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+    <Schema Namespace="CloudStorageModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="AllowedFileExtensions">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Extension" Type="nvarchar" MaxLength="20" Nullable="false" />
+          <Property Name="IsEnabled" Type="bit" Nullable="false" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="CreatedByUserId" Type="int" />
+        </EntityType>
+        <EntityType Name="ClientApplications">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ApiId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="ApplicationName" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="ApplicationUrl" Type="nvarchar" MaxLength="500" Nullable="false" />
+          <Property Name="ServerAddress" Type="nvarchar" MaxLength="100" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="CreatedByUserId" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="DepartmentAllowedExtensions">
+          <Key>
+            <PropertyRef Name="DepartmentId" />
+            <PropertyRef Name="ExtensionId" />
+          </Key>
+          <Property Name="DepartmentId" Type="int" Nullable="false" />
+          <Property Name="ExtensionId" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="DepartmentNameCatalog">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Departments">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="DataMonitorUserId" Type="int" />
+          <Property Name="IsVisibilityAllowed" Type="bit" Nullable="false" />
+          <Property Name="IsZippingAllowed" Type="bit" Nullable="false" />
+          <Property Name="IsDownloadingAllowed" Type="bit" Nullable="false" />
+          <Property Name="IsSharingAllowed" Type="bit" Nullable="false" />
+          <Property Name="IsExternalSharingAllowed" Type="bit" Nullable="false" />
+          <Property Name="IsCopyFromOtherDriveAllowed" Type="bit" Nullable="false" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="ParentDepartmentId" Type="int" />
+          <Property Name="DepartmentNameCatalogId" Type="int" />
+        </EntityType>
+        <EntityType Name="FileBlobs">
+          <Key>
+            <PropertyRef Name="FileHash" />
+          </Key>
+          <Property Name="FileHash" Type="nvarchar" MaxLength="64" Nullable="false" />
+          <Property Name="BlobPath" Type="nvarchar" MaxLength="600" Nullable="false" />
+          <Property Name="Size" Type="bigint" Nullable="false" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="RefCount" Type="int" Nullable="false" />
+          <Property Name="Pooled" Type="bit" Nullable="false" />
+          <Property Name="LastRefUpdatedAt" Type="datetime" />
+        </EntityType>
+        <EntityType Name="FileChunks">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="FileIdForUpload" Type="nvarchar" MaxLength="128" Nullable="false" />
+          <Property Name="ChunkNumber" Type="int" Nullable="false" />
+          <Property Name="ChunkFilePath" Type="nvarchar(max)" Nullable="false" />
+          <Property Name="ChunkChecksum" Type="nvarchar" MaxLength="64" />
+          <Property Name="UploadedAt" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Files">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="ContentType" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="Size" Type="bigint" Nullable="false" />
+          <Property Name="FilePath" Type="nvarchar(max)" Nullable="false" />
+          <Property Name="FolderId" Type="int" Nullable="false" />
+          <Property Name="UploadedAt" Type="datetime" Nullable="false" />
+          <Property Name="IsProcessing" Type="bit" Nullable="false" />
+          <Property Name="ZipPassword" Type="nvarchar" MaxLength="50" />
+          <Property Name="FileIdForUpload" Type="nvarchar" MaxLength="128" />
+          <Property Name="ProcessingProgress" Type="int" Nullable="false" />
+          <Property Name="FileHash" Type="nvarchar" MaxLength="64" />
+          <Property Name="LockedBySessionId" Type="nvarchar" MaxLength="128" />
+          <Property Name="LockedAtUtc" Type="datetime" />
+          <Property Name="FinalizationStage" Type="nvarchar" MaxLength="50" />
+          <Property Name="FinalizationProgress" Type="int" />
+          <Property Name="FinalizationWorker" Type="nvarchar" MaxLength="100" />
+          <Property Name="FinalizationStartedAtUtc" Type="datetime" />
+          <Property Name="HangfireJobId" Type="nvarchar" MaxLength="50" />
+          <Property Name="IsSoftDeleted" Type="bit" Nullable="false" />
+          <Property Name="SoftDeletedAt" Type="datetime" />
+          <Property Name="IsHardDeleted" Type="bit" Nullable="false" />
+          <Property Name="BinEnteredAt" Type="datetime" />
+          <Property Name="PooledAt" Type="datetime" />
+          <Property Name="OriginalPhysicalPath" Type="nvarchar" MaxLength="400" />
+          <Property Name="BlobHash" Type="nvarchar" MaxLength="64" />
+          <Property Name="PendingDelete" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Folders">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="ParentFolderId" Type="int" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="OwnerUserId" Type="int" />
+          <Property Name="IsSoftDeleted" Type="bit" Nullable="false" />
+          <Property Name="SoftDeletedAt" Type="datetime" />
+          <Property Name="IsHardDeleted" Type="bit" Nullable="false" />
+          <Property Name="BinEnteredAt" Type="datetime" />
+          <Property Name="Depth" Type="int" Nullable="false" />
+          <Property Name="PathKey" Type="nvarchar" MaxLength="850" />
+          <Property Name="PendingDelete" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ShareableLinkFiles">
+          <Key>
+            <PropertyRef Name="ShareableLinkId" />
+            <PropertyRef Name="FileId" />
+          </Key>
+          <Property Name="ShareableLinkId" Type="int" Nullable="false" />
+          <Property Name="FileId" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ShareableLinkRecipients">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ShareableLinkId" Type="int" Nullable="false" />
+          <Property Name="EmailAddress" Type="nvarchar" MaxLength="255" />
+          <Property Name="UserId" Type="int" />
+          <Property Name="RecipientADUserId" Type="nvarchar" MaxLength="255" />
+        </EntityType>
+        <EntityType Name="ShareableLinks">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Token" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="PasswordHash" Type="nvarchar(max)" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="ExpiresAt" Type="datetime" />
+          <Property Name="ShareScope" Type="nvarchar" MaxLength="20" Nullable="false" />
+        </EntityType>
+        <EntityType Name="SystemSettings">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Key" Type="nvarchar" MaxLength="100" Nullable="false" />
+          <Property Name="Value" Type="nvarchar(max)" />
+          <Property Name="UpdatedAt" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="UploadSessions">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="TusFileId" Type="nvarchar" MaxLength="200" Nullable="false" />
+          <Property Name="UploadUrl" Type="nvarchar" MaxLength="1000" Nullable="false" />
+          <Property Name="Filename" Type="nvarchar" MaxLength="512" />
+          <Property Name="RelativePath" Type="nvarchar" MaxLength="1024" />
+          <Property Name="SizeBytes" Type="bigint" Nullable="false" />
+          <Property Name="OffsetBytes" Type="bigint" Nullable="false" />
+          <Property Name="SampleSha256" Type="nvarchar" MaxLength="128" />
+          <Property Name="FullSha256" Type="nvarchar" MaxLength="128" />
+          <Property Name="OwnerUserId" Type="int" />
+          <Property Name="ClaimedByUserId" Type="int" />
+          <Property Name="ClaimedAt" Type="datetime" />
+          <Property Name="TargetFolderId" Type="int" />
+          <Property Name="Status" Type="int" Nullable="false" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="UpdatedAt" Type="datetime" Nullable="false" />
+          <Property Name="ExpiresAt" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Users">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ExternalUserId" Type="nvarchar" MaxLength="10" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="PasswordHash" Type="nvarchar(max)" Nullable="false" />
+          <Property Name="FullName" Type="nvarchar" MaxLength="255" Nullable="false" />
+          <Property Name="ExternalRoleId" Type="int" />
+          <Property Name="CreatedAt" Type="datetime" Nullable="false" />
+          <Property Name="LastLoginAt" Type="datetime" />
+          <Property Name="Role" Type="nvarchar" MaxLength="50" Nullable="false" />
+          <Property Name="DepartmentId" Type="int" />
+          <Property Name="IsDepartmentApproved" Type="bit" Nullable="false" />
+          <Property Name="IsDepartmentRejected" Type="bit" Nullable="false" />
+        </EntityType>
+        <Association Name="FK__Departmen__DataM__0F624AF8">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="Departments" Type="Self.Departments" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Departments">
+              <PropertyRef Name="DataMonitorUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK__Departmen__Depar__0D7A0286">
+          <End Role="Departments" Type="Self.Departments" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="DepartmentAllowedExtensions" Type="Self.DepartmentAllowedExtensions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Departments">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="DepartmentAllowedExtensions">
+              <PropertyRef Name="DepartmentId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK__Departmen__Exten__0E6E26BF">
+          <End Role="AllowedFileExtensions" Type="Self.AllowedFileExtensions" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="DepartmentAllowedExtensions" Type="Self.DepartmentAllowedExtensions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="AllowedFileExtensions">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="DepartmentAllowedExtensions">
+              <PropertyRef Name="ExtensionId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_AllowedFileExtensions_Users_CreatedByUserId">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="AllowedFileExtensions" Type="Self.AllowedFileExtensions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="AllowedFileExtensions">
+              <PropertyRef Name="CreatedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ClientApplications_Users">
+          <End Role="Users" Type="Self.Users" Multiplicity="1" />
+          <End Role="ClientApplications" Type="Self.ClientApplications" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ClientApplications">
+              <PropertyRef Name="CreatedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_ClientApplications_dbo_Users_CreatedByUserId">
+          <End Role="Users" Type="Self.Users" Multiplicity="1" />
+          <End Role="ClientApplications" Type="Self.ClientApplications" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ClientApplications">
+              <PropertyRef Name="CreatedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_Folders_dbo_Folders_ParentFolderId">
+          <End Role="Folders" Type="Self.Folders" Multiplicity="0..1" />
+          <End Role="Folders1" Type="Self.Folders" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Folders">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Folders1">
+              <PropertyRef Name="ParentFolderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_Folders_dbo_Users_OwnerUserId">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="Folders" Type="Self.Folders" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Folders">
+              <PropertyRef Name="OwnerUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_ShareableLinkFiles_dbo_Files_FileId">
+          <End Role="Files" Type="Self.Files" Multiplicity="1" />
+          <End Role="ShareableLinkFiles" Type="Self.ShareableLinkFiles" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Files">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ShareableLinkFiles">
+              <PropertyRef Name="FileId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_ShareableLinkFiles_dbo_ShareableLinks_ShareableLinkId">
+          <End Role="ShareableLinks" Type="Self.ShareableLinks" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ShareableLinkFiles" Type="Self.ShareableLinkFiles" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ShareableLinks">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ShareableLinkFiles">
+              <PropertyRef Name="ShareableLinkId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId">
+          <End Role="ShareableLinks" Type="Self.ShareableLinks" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ShareableLinkRecipients" Type="Self.ShareableLinkRecipients" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ShareableLinks">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ShareableLinkRecipients">
+              <PropertyRef Name="ShareableLinkId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_ShareableLinkRecipients_dbo_Users_UserId">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ShareableLinkRecipients" Type="Self.ShareableLinkRecipients" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ShareableLinkRecipients">
+              <PropertyRef Name="UserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Departments_DepartmentNameCatalog">
+          <End Role="DepartmentNameCatalog" Type="Self.DepartmentNameCatalog" Multiplicity="0..1" />
+          <End Role="Departments" Type="Self.Departments" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DepartmentNameCatalog">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Departments">
+              <PropertyRef Name="DepartmentNameCatalogId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Departments_ParentDepartment">
+          <End Role="Departments" Type="Self.Departments" Multiplicity="0..1" />
+          <End Role="Departments1" Type="Self.Departments" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Departments">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Departments1">
+              <PropertyRef Name="ParentDepartmentId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Files_FileBlobs_BlobHash">
+          <End Role="FileBlobs" Type="Self.FileBlobs" Multiplicity="0..1" />
+          <End Role="Files" Type="Self.Files" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="FileBlobs">
+              <PropertyRef Name="FileHash" />
+            </Principal>
+            <Dependent Role="Files">
+              <PropertyRef Name="BlobHash" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Files_Folders_NoCascade">
+          <End Role="Folders" Type="Self.Folders" Multiplicity="1" />
+          <End Role="Files" Type="Self.Files" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Folders">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Files">
+              <PropertyRef Name="FolderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UploadSessions_Folders_Target">
+          <End Role="Folders" Type="Self.Folders" Multiplicity="0..1" />
+          <End Role="UploadSessions" Type="Self.UploadSessions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Folders">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="UploadSessions">
+              <PropertyRef Name="TargetFolderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UploadSessions_Users_ClaimedBy">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="UploadSessions" Type="Self.UploadSessions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="UploadSessions">
+              <PropertyRef Name="ClaimedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UploadSessions_Users_Owner">
+          <End Role="Users" Type="Self.Users" Multiplicity="0..1" />
+          <End Role="UploadSessions" Type="Self.UploadSessions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Users">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="UploadSessions">
+              <PropertyRef Name="OwnerUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Users_Departments">
+          <End Role="Departments" Type="Self.Departments" Multiplicity="0..1" />
+          <End Role="Users" Type="Self.Users" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Departments">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Users">
+              <PropertyRef Name="DepartmentId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="CloudStorageModelStoreContainer">
+          <EntitySet Name="AllowedFileExtensions" EntityType="Self.AllowedFileExtensions" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ClientApplications" EntityType="Self.ClientApplications" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="DepartmentAllowedExtensions" EntityType="Self.DepartmentAllowedExtensions" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="DepartmentNameCatalog" EntityType="Self.DepartmentNameCatalog" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Departments" EntityType="Self.Departments" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="FileBlobs" EntityType="Self.FileBlobs" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="FileChunks" EntityType="Self.FileChunks" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Files" EntityType="Self.Files" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Folders" EntityType="Self.Folders" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ShareableLinkFiles" EntityType="Self.ShareableLinkFiles" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ShareableLinkRecipients" EntityType="Self.ShareableLinkRecipients" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ShareableLinks" EntityType="Self.ShareableLinks" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SystemSettings" EntityType="Self.SystemSettings" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="UploadSessions" EntityType="Self.UploadSessions" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Users" EntityType="Self.Users" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="FK__Departmen__DataM__0F624AF8" Association="Self.FK__Departmen__DataM__0F624AF8">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Departments" EntitySet="Departments" />
+          </AssociationSet>
+          <AssociationSet Name="FK__Departmen__Depar__0D7A0286" Association="Self.FK__Departmen__Depar__0D7A0286">
+            <End Role="Departments" EntitySet="Departments" />
+            <End Role="DepartmentAllowedExtensions" EntitySet="DepartmentAllowedExtensions" />
+          </AssociationSet>
+          <AssociationSet Name="FK__Departmen__Exten__0E6E26BF" Association="Self.FK__Departmen__Exten__0E6E26BF">
+            <End Role="AllowedFileExtensions" EntitySet="AllowedFileExtensions" />
+            <End Role="DepartmentAllowedExtensions" EntitySet="DepartmentAllowedExtensions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_AllowedFileExtensions_Users_CreatedByUserId" Association="Self.FK_AllowedFileExtensions_Users_CreatedByUserId">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="AllowedFileExtensions" EntitySet="AllowedFileExtensions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ClientApplications_Users" Association="Self.FK_ClientApplications_Users">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="ClientApplications" EntitySet="ClientApplications" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_ClientApplications_dbo_Users_CreatedByUserId" Association="Self.FK_dbo_ClientApplications_dbo_Users_CreatedByUserId">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="ClientApplications" EntitySet="ClientApplications" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_Folders_dbo_Folders_ParentFolderId" Association="Self.FK_dbo_Folders_dbo_Folders_ParentFolderId">
+            <End Role="Folders" EntitySet="Folders" />
+            <End Role="Folders1" EntitySet="Folders" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_Folders_dbo_Users_OwnerUserId" Association="Self.FK_dbo_Folders_dbo_Users_OwnerUserId">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="Folders" EntitySet="Folders" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_ShareableLinkFiles_dbo_Files_FileId" Association="Self.FK_dbo_ShareableLinkFiles_dbo_Files_FileId">
+            <End Role="Files" EntitySet="Files" />
+            <End Role="ShareableLinkFiles" EntitySet="ShareableLinkFiles" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_ShareableLinkFiles_dbo_ShareableLinks_ShareableLinkId" Association="Self.FK_dbo_ShareableLinkFiles_dbo_ShareableLinks_ShareableLinkId">
+            <End Role="ShareableLinks" EntitySet="ShareableLinks" />
+            <End Role="ShareableLinkFiles" EntitySet="ShareableLinkFiles" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId" Association="Self.FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId">
+            <End Role="ShareableLinks" EntitySet="ShareableLinks" />
+            <End Role="ShareableLinkRecipients" EntitySet="ShareableLinkRecipients" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_ShareableLinkRecipients_dbo_Users_UserId" Association="Self.FK_dbo_ShareableLinkRecipients_dbo_Users_UserId">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="ShareableLinkRecipients" EntitySet="ShareableLinkRecipients" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Departments_DepartmentNameCatalog" Association="Self.FK_Departments_DepartmentNameCatalog">
+            <End Role="DepartmentNameCatalog" EntitySet="DepartmentNameCatalog" />
+            <End Role="Departments" EntitySet="Departments" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Departments_ParentDepartment" Association="Self.FK_Departments_ParentDepartment">
+            <End Role="Departments" EntitySet="Departments" />
+            <End Role="Departments1" EntitySet="Departments" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Files_FileBlobs_BlobHash" Association="Self.FK_Files_FileBlobs_BlobHash">
+            <End Role="FileBlobs" EntitySet="FileBlobs" />
+            <End Role="Files" EntitySet="Files" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Files_Folders_NoCascade" Association="Self.FK_Files_Folders_NoCascade">
+            <End Role="Folders" EntitySet="Folders" />
+            <End Role="Files" EntitySet="Files" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UploadSessions_Folders_Target" Association="Self.FK_UploadSessions_Folders_Target">
+            <End Role="Folders" EntitySet="Folders" />
+            <End Role="UploadSessions" EntitySet="UploadSessions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UploadSessions_Users_ClaimedBy" Association="Self.FK_UploadSessions_Users_ClaimedBy">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="UploadSessions" EntitySet="UploadSessions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UploadSessions_Users_Owner" Association="Self.FK_UploadSessions_Users_Owner">
+            <End Role="Users" EntitySet="Users" />
+            <End Role="UploadSessions" EntitySet="UploadSessions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Users_Departments" Association="Self.FK_Users_Departments">
+            <End Role="Departments" EntitySet="Departments" />
+            <End Role="Users" EntitySet="Users" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema></edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="CloudStorageModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="FileChunk">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="FileIdForUpload" Type="String" MaxLength="128" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="ChunkNumber" Type="Int32" Nullable="false" />
+          <Property Name="ChunkFilePath" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="UploadedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ChunkChecksum" Type="String" MaxLength="64" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <EntityType Name="File">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" MaxLength="255" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="ContentType" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="Size" Type="Int64" Nullable="false" />
+          <Property Name="FilePath" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="FolderId" Type="Int32" Nullable="false" />
+          <Property Name="UploadedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="IsProcessing" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="Folder" Relationship="Self.FK_dbo_Files_dbo_Folders_FolderId" FromRole="Files" ToRole="Folders" />
+          <Property Name="ZipPassword" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="FileIdForUpload" Type="String" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="ProcessingProgress" Type="Int32" Nullable="false" />
+          <Property Name="FileHash" Type="String" MaxLength="64" FixedLength="false" Unicode="true" />
+          <Property Name="LockedBySessionId" Type="String" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="LockedAtUtc" Type="DateTime" Precision="3" />
+          <NavigationProperty Name="ShareableLinks" Relationship="CloudStorageModel.ShareableLinkFiles" FromRole="File" ToRole="ShareableLink" />
+          <Property Name="FinalizationStage" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="FinalizationProgress" Type="Int32" />
+          <Property Name="FinalizationWorker" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="FinalizationStartedAtUtc" Type="DateTime" Precision="3" />
+          <Property Name="HangfireJobId" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="IsSoftDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="SoftDeletedAt" Type="DateTime" Precision="3" />
+          <Property Name="IsHardDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="BinEnteredAt" Type="DateTime" Precision="3" />
+          <Property Name="PooledAt" Type="DateTime" Precision="3" />
+          <Property Name="OriginalPhysicalPath" Type="String" MaxLength="400" FixedLength="false" Unicode="true" />
+          <Property Name="BlobHash" Type="String" MaxLength="64" FixedLength="false" Unicode="true" />
+          <Property Name="PendingDelete" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="FileBlob" Relationship="CloudStorageModel.FK_Files_FileBlobs_BlobHash" FromRole="File" ToRole="FileBlob" />
+        </EntityType>
+        <EntityType Name="Folder">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" MaxLength="255" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="ParentFolderId" Type="Int32" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="Files" Relationship="Self.FK_dbo_Files_dbo_Folders_FolderId" FromRole="Folders" ToRole="Files" />
+          <NavigationProperty Name="Folders1" Relationship="Self.FK_dbo_Folders_dbo_Folders_ParentFolderId" FromRole="Folders" ToRole="Folders1" />
+          <NavigationProperty Name="Folder1" Relationship="Self.FK_dbo_Folders_dbo_Folders_ParentFolderId" FromRole="Folders1" ToRole="Folders" />
+          <Property Name="OwnerUserId" Type="Int32" />
+          <NavigationProperty Name="User" Relationship="CloudStorageModel.FK_dbo_Folders_dbo_Users_OwnerUserId" FromRole="Folder" ToRole="User" />
+          <NavigationProperty Name="UploadSessions" Relationship="CloudStorageModel.FK_UploadSessions_Folders_Target" FromRole="Folder" ToRole="UploadSession" />
+          <Property Name="IsSoftDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="SoftDeletedAt" Type="DateTime" Precision="3" />
+          <Property Name="IsHardDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="BinEnteredAt" Type="DateTime" Precision="3" />
+          <Property Name="Depth" Type="Int32" Nullable="false" />
+          <Property Name="PathKey" Type="String" MaxLength="850" FixedLength="false" Unicode="true" />
+          <Property Name="PendingDelete" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ShareableLink">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Token" Type="String" MaxLength="100" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="PasswordHash" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ExpiresAt" Type="DateTime" Precision="3" />
+          <NavigationProperty Name="Files" Relationship="CloudStorageModel.ShareableLinkFiles" FromRole="ShareableLink" ToRole="File" />
+          <Property Name="ShareScope" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="ShareableLinkRecipients" Relationship="CloudStorageModel.FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId" FromRole="ShareableLink" ToRole="ShareableLinkRecipient" />
+        </EntityType>
+        <Association Name="FK_dbo_Files_dbo_Folders_FolderId">
+          <End Role="Folders" Type="Self.Folder" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Files" Type="Self.File" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Folders">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Files">
+              <PropertyRef Name="FolderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_Folders_dbo_Folders_ParentFolderId">
+          <End Role="Folders" Type="Self.Folder" Multiplicity="0..1" />
+          <End Role="Folders1" Type="Self.Folder" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Folders">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Folders1">
+              <PropertyRef Name="ParentFolderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="CloudStorageDbContext" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="FileChunks" EntityType="Self.FileChunk" />
+          <EntitySet Name="Files" EntityType="Self.File" />
+          <EntitySet Name="Folders" EntityType="Self.Folder" />
+          <EntitySet Name="ShareableLinks" EntityType="Self.ShareableLink" />
+          <AssociationSet Name="FK_dbo_Files_dbo_Folders_FolderId" Association="Self.FK_dbo_Files_dbo_Folders_FolderId">
+            <End Role="Folders" EntitySet="Folders" />
+            <End Role="Files" EntitySet="Files" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_Folders_dbo_Folders_ParentFolderId" Association="Self.FK_dbo_Folders_dbo_Folders_ParentFolderId">
+            <End Role="Folders" EntitySet="Folders" />
+            <End Role="Folders1" EntitySet="Folders" />
+          </AssociationSet>
+          <EntitySet Name="Users" EntityType="CloudStorageModel.User" />
+          <AssociationSet Name="FK_dbo_Folders_dbo_Users_OwnerUserId" Association="CloudStorageModel.FK_dbo_Folders_dbo_Users_OwnerUserId">
+            <End Role="User" EntitySet="Users" />
+            <End Role="Folder" EntitySet="Folders" />
+          </AssociationSet>
+          <AssociationSet Name="ShareableLinkFiles" Association="CloudStorageModel.ShareableLinkFiles">
+            <End Role="File" EntitySet="Files" />
+            <End Role="ShareableLink" EntitySet="ShareableLinks" />
+          </AssociationSet>
+          <EntitySet Name="ClientApplications" EntityType="CloudStorageModel.ClientApplication" />
+          <AssociationSet Name="FK_dbo_ClientApplications_dbo_Users_CreatedByUserId" Association="CloudStorageModel.FK_dbo_ClientApplications_dbo_Users_CreatedByUserId">
+            <End Role="User" EntitySet="Users" />
+            <End Role="ClientApplication" EntitySet="ClientApplications" />
+          </AssociationSet>
+          <EntitySet Name="ShareableLinkRecipients" EntityType="CloudStorageModel.ShareableLinkRecipient" />
+          <AssociationSet Name="FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId" Association="CloudStorageModel.FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId">
+            <End Role="ShareableLink" EntitySet="ShareableLinks" />
+            <End Role="ShareableLinkRecipient" EntitySet="ShareableLinkRecipients" />
+          </AssociationSet>
+          <AssociationSet Name="FK_dbo_ShareableLinkRecipients_dbo_Users_UserId" Association="CloudStorageModel.FK_dbo_ShareableLinkRecipients_dbo_Users_UserId">
+            <End Role="User" EntitySet="Users" />
+            <End Role="ShareableLinkRecipient" EntitySet="ShareableLinkRecipients" />
+          </AssociationSet>
+          <EntitySet Name="UploadSessions" EntityType="CloudStorageModel.UploadSession" />
+          <AssociationSet Name="FK_UploadSessions_Folders_Target" Association="CloudStorageModel.FK_UploadSessions_Folders_Target">
+            <End Role="Folder" EntitySet="Folders" />
+            <End Role="UploadSession" EntitySet="UploadSessions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UploadSessions_Users_ClaimedBy" Association="CloudStorageModel.FK_UploadSessions_Users_ClaimedBy">
+            <End Role="User" EntitySet="Users" />
+            <End Role="UploadSession" EntitySet="UploadSessions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_UploadSessions_Users_Owner" Association="CloudStorageModel.FK_UploadSessions_Users_Owner">
+            <End Role="User" EntitySet="Users" />
+            <End Role="UploadSession" EntitySet="UploadSessions" />
+          </AssociationSet>
+          <EntitySet Name="FileBlobs" EntityType="CloudStorageModel.FileBlob" />
+          <AssociationSet Name="FK_Files_FileBlobs_BlobHash" Association="CloudStorageModel.FK_Files_FileBlobs_BlobHash">
+            <End Role="FileBlob" EntitySet="FileBlobs" />
+            <End Role="File" EntitySet="Files" />
+          </AssociationSet>
+          <EntitySet Name="AllowedFileExtensions" EntityType="CloudStorageModel.AllowedFileExtension" />
+          <EntitySet Name="SystemSettings" EntityType="CloudStorageModel.SystemSetting" />
+          <AssociationSet Name="FK_AllowedFileExtensions_Users_CreatedByUserId" Association="CloudStorageModel.FK_AllowedFileExtensions_Users_CreatedByUserId">
+            <End Role="User" EntitySet="Users" />
+            <End Role="AllowedFileExtension" EntitySet="AllowedFileExtensions" />
+          </AssociationSet>
+          <EntitySet Name="Departments" EntityType="CloudStorageModel.Department" />
+          <AssociationSet Name="FK__Departmen__DataM__02084FDA" Association="CloudStorageModel.FK__Departmen__DataM__02084FDA">
+            <End Role="User" EntitySet="Users" />
+            <End Role="Department" EntitySet="Departments" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Users_Departments" Association="CloudStorageModel.FK_Users_Departments">
+            <End Role="Department" EntitySet="Departments" />
+            <End Role="User" EntitySet="Users" />
+          </AssociationSet>
+          <AssociationSet Name="DepartmentAllowedExtensions" Association="CloudStorageModel.DepartmentAllowedExtensions">
+            <End Role="Department" EntitySet="Departments" />
+            <End Role="AllowedFileExtension" EntitySet="AllowedFileExtensions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Departments_ParentDepartment" Association="CloudStorageModel.FK_Departments_ParentDepartment">
+            <End Role="Department" EntitySet="Departments" />
+            <End Role="Department1" EntitySet="Departments" />
+          </AssociationSet>
+          <EntitySet Name="DepartmentNameCatalogs" EntityType="CloudStorageModel.DepartmentNameCatalog" />
+          <AssociationSet Name="FK_Departments_DepartmentNameCatalog" Association="CloudStorageModel.FK_Departments_DepartmentNameCatalog">
+            <End Role="DepartmentNameCatalog" EntitySet="DepartmentNameCatalogs" />
+            <End Role="Department" EntitySet="Departments" />
+          </AssociationSet>
+        </EntityContainer>
+        <EntityType Name="User">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ExternalUserId" Type="String" Nullable="false" MaxLength="10" FixedLength="false" Unicode="true" />
+          <Property Name="Username" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="PasswordHash" Type="String" Nullable="false" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="FullName" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="ExternalRoleId" Type="Int32" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="LastLoginAt" Type="DateTime" Precision="3" />
+          <NavigationProperty Name="Folders" Relationship="CloudStorageModel.FK_dbo_Folders_dbo_Users_OwnerUserId" FromRole="User" ToRole="Folder" />
+          <NavigationProperty Name="ClientApplications" Relationship="CloudStorageModel.FK_dbo_ClientApplications_dbo_Users_CreatedByUserId" FromRole="User" ToRole="ClientApplication" />
+          <NavigationProperty Name="ShareableLinkRecipients" Relationship="CloudStorageModel.FK_dbo_ShareableLinkRecipients_dbo_Users_UserId" FromRole="User" ToRole="ShareableLinkRecipient" />
+          <NavigationProperty Name="UploadSessions" Relationship="CloudStorageModel.FK_UploadSessions_Users_ClaimedBy" FromRole="User" ToRole="UploadSession" />
+          <NavigationProperty Name="UploadSessions1" Relationship="CloudStorageModel.FK_UploadSessions_Users_Owner" FromRole="User" ToRole="UploadSession" />
+          <Property Name="Role" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="AllowedFileExtensions" Relationship="CloudStorageModel.FK_AllowedFileExtensions_Users_CreatedByUserId" FromRole="User" ToRole="AllowedFileExtension" />
+          <Property Name="DepartmentId" Type="Int32" />
+          <Property Name="IsDepartmentApproved" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="Departments" Relationship="CloudStorageModel.FK__Departmen__DataM__02084FDA" FromRole="User" ToRole="Department" />
+          <NavigationProperty Name="Department" Relationship="CloudStorageModel.FK_Users_Departments" FromRole="User" ToRole="Department" />
+          <Property Name="IsDepartmentRejected" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <Association Name="FK_dbo_Folders_dbo_Users_OwnerUserId">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.Folder" Role="Folder" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Folder">
+              <PropertyRef Name="OwnerUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="ShareableLinkFiles">
+          <End Type="CloudStorageModel.File" Role="File" Multiplicity="*" />
+          <End Type="CloudStorageModel.ShareableLink" Role="ShareableLink" Multiplicity="*" />
+        </Association>
+        <EntityType Name="ClientApplication">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ApiId" Type="Guid" Nullable="false" />
+          <Property Name="ApplicationName" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="ApplicationUrl" Type="String" Nullable="false" MaxLength="500" FixedLength="false" Unicode="true" />
+          <Property Name="ServerAddress" Type="String" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="CreatedByUserId" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="User" Relationship="CloudStorageModel.FK_dbo_ClientApplications_dbo_Users_CreatedByUserId" FromRole="ClientApplication" ToRole="User" />
+        </EntityType>
+        <Association Name="FK_dbo_ClientApplications_dbo_Users_CreatedByUserId">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="1" />
+          <End Type="CloudStorageModel.ClientApplication" Role="ClientApplication" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ClientApplication">
+              <PropertyRef Name="CreatedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="ShareableLinkRecipient">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ShareableLinkId" Type="Int32" Nullable="false" />
+          <Property Name="EmailAddress" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="ShareableLink" Relationship="CloudStorageModel.FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId" FromRole="ShareableLinkRecipient" ToRole="ShareableLink" />
+          <Property Name="UserId" Type="Int32" />
+          <NavigationProperty Name="User" Relationship="CloudStorageModel.FK_dbo_ShareableLinkRecipients_dbo_Users_UserId" FromRole="ShareableLinkRecipient" ToRole="User" />
+          <Property Name="RecipientADUserId" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <Association Name="FK_dbo_ShareableLinkRecipients_dbo_ShareableLinks_ShareableLinkId">
+          <End Type="CloudStorageModel.ShareableLink" Role="ShareableLink" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="CloudStorageModel.ShareableLinkRecipient" Role="ShareableLinkRecipient" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ShareableLink">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ShareableLinkRecipient">
+              <PropertyRef Name="ShareableLinkId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_dbo_ShareableLinkRecipients_dbo_Users_UserId">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="0..1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="CloudStorageModel.ShareableLinkRecipient" Role="ShareableLinkRecipient" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="ShareableLinkRecipient">
+              <PropertyRef Name="UserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="UploadSession">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="TusFileId" Type="String" Nullable="false" MaxLength="200" FixedLength="false" Unicode="true" />
+          <Property Name="UploadUrl" Type="String" Nullable="false" MaxLength="1000" FixedLength="false" Unicode="true" />
+          <Property Name="Filename" Type="String" MaxLength="512" FixedLength="false" Unicode="true" />
+          <Property Name="RelativePath" Type="String" MaxLength="1024" FixedLength="false" Unicode="true" />
+          <Property Name="SizeBytes" Type="Int64" Nullable="false" />
+          <Property Name="OffsetBytes" Type="Int64" Nullable="false" />
+          <Property Name="SampleSha256" Type="String" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="FullSha256" Type="String" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="OwnerUserId" Type="Int32" />
+          <Property Name="ClaimedByUserId" Type="Int32" />
+          <Property Name="ClaimedAt" Type="DateTime" Precision="3" />
+          <Property Name="TargetFolderId" Type="Int32" />
+          <Property Name="Status" Type="Int32" Nullable="false" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="UpdatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="ExpiresAt" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="Folder" Relationship="CloudStorageModel.FK_UploadSessions_Folders_Target" FromRole="UploadSession" ToRole="Folder" />
+          <NavigationProperty Name="User" Relationship="CloudStorageModel.FK_UploadSessions_Users_ClaimedBy" FromRole="UploadSession" ToRole="User" />
+          <NavigationProperty Name="User1" Relationship="CloudStorageModel.FK_UploadSessions_Users_Owner" FromRole="UploadSession" ToRole="User" />
+        </EntityType>
+        <Association Name="FK_UploadSessions_Folders_Target">
+          <End Type="CloudStorageModel.Folder" Role="Folder" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.UploadSession" Role="UploadSession" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Folder">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="UploadSession">
+              <PropertyRef Name="TargetFolderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UploadSessions_Users_ClaimedBy">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.UploadSession" Role="UploadSession" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="UploadSession">
+              <PropertyRef Name="ClaimedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_UploadSessions_Users_Owner">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.UploadSession" Role="UploadSession" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="UploadSession">
+              <PropertyRef Name="OwnerUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="FileBlob">
+          <Key>
+            <PropertyRef Name="FileHash" />
+          </Key>
+          <Property Name="FileHash" Type="String" Nullable="false" MaxLength="64" FixedLength="false" Unicode="true" />
+          <Property Name="BlobPath" Type="String" Nullable="false" MaxLength="600" FixedLength="false" Unicode="true" />
+          <Property Name="Size" Type="Int64" Nullable="false" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="RefCount" Type="Int32" Nullable="false" />
+          <Property Name="Pooled" Type="Boolean" Nullable="false" />
+          <Property Name="LastRefUpdatedAt" Type="DateTime" Precision="3" />
+          <NavigationProperty Name="Files" Relationship="CloudStorageModel.FK_Files_FileBlobs_BlobHash" FromRole="FileBlob" ToRole="File" />
+        </EntityType>
+        <Association Name="FK_Files_FileBlobs_BlobHash">
+          <End Type="CloudStorageModel.FileBlob" Role="FileBlob" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.File" Role="File" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="FileBlob">
+              <PropertyRef Name="FileHash" />
+            </Principal>
+            <Dependent Role="File">
+              <PropertyRef Name="BlobHash" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="AllowedFileExtension">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Extension" Type="String" Nullable="false" MaxLength="20" FixedLength="false" Unicode="true" />
+          <Property Name="IsEnabled" Type="Boolean" Nullable="false" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="CreatedByUserId" Type="Int32" />
+          <NavigationProperty Name="User" Relationship="CloudStorageModel.FK_AllowedFileExtensions_Users_CreatedByUserId" FromRole="AllowedFileExtension" ToRole="User" />
+          <NavigationProperty Name="Departments" Relationship="CloudStorageModel.DepartmentAllowedExtensions" FromRole="AllowedFileExtension" ToRole="Department" />
+        </EntityType>
+        <EntityType Name="SystemSetting">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Key" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+          <Property Name="Value" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="UpdatedAt" Type="DateTime" Nullable="false" Precision="3" />
+        </EntityType>
+        <Association Name="FK_AllowedFileExtensions_Users_CreatedByUserId">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.AllowedFileExtension" Role="AllowedFileExtension" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="AllowedFileExtension">
+              <PropertyRef Name="CreatedByUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="Department">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="DataMonitorUserId" Type="Int32" />
+          <Property Name="IsVisibilityAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="IsZippingAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="IsDownloadingAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="IsSharingAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="IsExternalSharingAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="IsCopyFromOtherDriveAllowed" Type="Boolean" Nullable="false" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="User" Relationship="CloudStorageModel.FK__Departmen__DataM__02084FDA" FromRole="Department" ToRole="User" />
+          <NavigationProperty Name="Users" Relationship="CloudStorageModel.FK_Users_Departments" FromRole="Department" ToRole="User" />
+          <NavigationProperty Name="AllowedFileExtensions" Relationship="CloudStorageModel.DepartmentAllowedExtensions" FromRole="Department" ToRole="AllowedFileExtension" />
+          <Property Name="ParentDepartmentId" Type="Int32" />
+          <NavigationProperty Name="Departments1" Relationship="CloudStorageModel.FK_Departments_ParentDepartment" FromRole="Department" ToRole="Department1" />
+          <NavigationProperty Name="Department1" Relationship="CloudStorageModel.FK_Departments_ParentDepartment" FromRole="Department1" ToRole="Department" />
+          <Property Name="DepartmentNameCatalogId" Type="Int32" />
+          <NavigationProperty Name="DepartmentNameCatalog" Relationship="CloudStorageModel.FK_Departments_DepartmentNameCatalog" FromRole="Department" ToRole="DepartmentNameCatalog" />
+        </EntityType>
+        <Association Name="FK__Departmen__DataM__02084FDA">
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.Department" Role="Department" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Department">
+              <PropertyRef Name="DataMonitorUserId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Users_Departments">
+          <End Type="CloudStorageModel.Department" Role="Department" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.User" Role="User" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Department">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="User">
+              <PropertyRef Name="DepartmentId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="DepartmentAllowedExtensions">
+          <End Type="CloudStorageModel.Department" Role="Department" Multiplicity="*" />
+          <End Type="CloudStorageModel.AllowedFileExtension" Role="AllowedFileExtension" Multiplicity="*" />
+        </Association>
+        <Association Name="FK_Departments_ParentDepartment">
+          <End Type="CloudStorageModel.Department" Role="Department" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.Department" Role="Department1" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Department">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Department1">
+              <PropertyRef Name="ParentDepartmentId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="DepartmentNameCatalog">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="CreatedAt" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="Departments" Relationship="CloudStorageModel.FK_Departments_DepartmentNameCatalog" FromRole="DepartmentNameCatalog" ToRole="Department" />
+        </EntityType>
+        <Association Name="FK_Departments_DepartmentNameCatalog">
+          <End Type="CloudStorageModel.DepartmentNameCatalog" Role="DepartmentNameCatalog" Multiplicity="0..1" />
+          <End Type="CloudStorageModel.Department" Role="Department" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DepartmentNameCatalog">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Department">
+              <PropertyRef Name="DepartmentNameCatalogId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="CloudStorageModelStoreContainer" CdmEntityContainer="CloudStorageDbContext">
+          <EntitySetMapping Name="FileChunks">
+            <EntityTypeMapping TypeName="CloudStorageModel.FileChunk">
+              <MappingFragment StoreEntitySet="FileChunks">
+                <ScalarProperty Name="ChunkChecksum" ColumnName="ChunkChecksum" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="FileIdForUpload" ColumnName="FileIdForUpload" />
+                <ScalarProperty Name="ChunkNumber" ColumnName="ChunkNumber" />
+                <ScalarProperty Name="ChunkFilePath" ColumnName="ChunkFilePath" />
+                <ScalarProperty Name="UploadedAt" ColumnName="UploadedAt" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Files">
+            <EntityTypeMapping TypeName="CloudStorageModel.File">
+              <MappingFragment StoreEntitySet="Files">
+                <ScalarProperty Name="PendingDelete" ColumnName="PendingDelete" />
+                <ScalarProperty Name="BlobHash" ColumnName="BlobHash" />
+                <ScalarProperty Name="OriginalPhysicalPath" ColumnName="OriginalPhysicalPath" />
+                <ScalarProperty Name="PooledAt" ColumnName="PooledAt" />
+                <ScalarProperty Name="BinEnteredAt" ColumnName="BinEnteredAt" />
+                <ScalarProperty Name="IsHardDeleted" ColumnName="IsHardDeleted" />
+                <ScalarProperty Name="SoftDeletedAt" ColumnName="SoftDeletedAt" />
+                <ScalarProperty Name="IsSoftDeleted" ColumnName="IsSoftDeleted" />
+                <ScalarProperty Name="HangfireJobId" ColumnName="HangfireJobId" />
+                <ScalarProperty Name="FinalizationStartedAtUtc" ColumnName="FinalizationStartedAtUtc" />
+                <ScalarProperty Name="FinalizationWorker" ColumnName="FinalizationWorker" />
+                <ScalarProperty Name="FinalizationProgress" ColumnName="FinalizationProgress" />
+                <ScalarProperty Name="FinalizationStage" ColumnName="FinalizationStage" />
+                <ScalarProperty Name="LockedAtUtc" ColumnName="LockedAtUtc" />
+                <ScalarProperty Name="LockedBySessionId" ColumnName="LockedBySessionId" />
+                <ScalarProperty Name="FileHash" ColumnName="FileHash" />
+                <ScalarProperty Name="ProcessingProgress" ColumnName="ProcessingProgress" />
+                <ScalarProperty Name="FileIdForUpload" ColumnName="FileIdForUpload" />
+                <ScalarProperty Name="ZipPassword" ColumnName="ZipPassword" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="ContentType" ColumnName="ContentType" />
+                <ScalarProperty Name="Size" ColumnName="Size" />
+                <ScalarProperty Name="FilePath" ColumnName="FilePath" />
+                <ScalarProperty Name="FolderId" ColumnName="FolderId" />
+                <ScalarProperty Name="UploadedAt" ColumnName="UploadedAt" />
+                <ScalarProperty Name="IsProcessing" ColumnName="IsProcessing" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Folders">
+            <EntityTypeMapping TypeName="CloudStorageModel.Folder">
+              <MappingFragment StoreEntitySet="Folders">
+                <ScalarProperty Name="PendingDelete" ColumnName="PendingDelete" />
+                <ScalarProperty Name="PathKey" ColumnName="PathKey" />
+                <ScalarProperty Name="Depth" ColumnName="Depth" />
+                <ScalarProperty Name="BinEnteredAt" ColumnName="BinEnteredAt" />
+                <ScalarProperty Name="IsHardDeleted" ColumnName="IsHardDeleted" />
+                <ScalarProperty Name="SoftDeletedAt" ColumnName="SoftDeletedAt" />
+                <ScalarProperty Name="IsSoftDeleted" ColumnName="IsSoftDeleted" />
+                <ScalarProperty Name="OwnerUserId" ColumnName="OwnerUserId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="ParentFolderId" ColumnName="ParentFolderId" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ShareableLinks">
+            <EntityTypeMapping TypeName="CloudStorageModel.ShareableLink">
+              <MappingFragment StoreEntitySet="ShareableLinks">
+                <ScalarProperty Name="ShareScope" ColumnName="ShareScope" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Token" ColumnName="Token" />
+                <ScalarProperty Name="PasswordHash" ColumnName="PasswordHash" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="ExpiresAt" ColumnName="ExpiresAt" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Users">
+            <EntityTypeMapping TypeName="CloudStorageModel.User">
+              <MappingFragment StoreEntitySet="Users">
+                <ScalarProperty Name="IsDepartmentRejected" ColumnName="IsDepartmentRejected" />
+                <ScalarProperty Name="IsDepartmentApproved" ColumnName="IsDepartmentApproved" />
+                <ScalarProperty Name="DepartmentId" ColumnName="DepartmentId" />
+                <ScalarProperty Name="Role" ColumnName="Role" />
+                <ScalarProperty Name="LastLoginAt" ColumnName="LastLoginAt" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="ExternalRoleId" ColumnName="ExternalRoleId" />
+                <ScalarProperty Name="FullName" ColumnName="FullName" />
+                <ScalarProperty Name="PasswordHash" ColumnName="PasswordHash" />
+                <ScalarProperty Name="Username" ColumnName="Username" />
+                <ScalarProperty Name="ExternalUserId" ColumnName="ExternalUserId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <AssociationSetMapping Name="ShareableLinkFiles" TypeName="CloudStorageModel.ShareableLinkFiles" StoreEntitySet="ShareableLinkFiles">
+            <EndProperty Name="ShareableLink">
+              <ScalarProperty Name="Id" ColumnName="ShareableLinkId" />
+            </EndProperty>
+            <EndProperty Name="File">
+              <ScalarProperty Name="Id" ColumnName="FileId" />
+            </EndProperty>
+          </AssociationSetMapping>
+          <EntitySetMapping Name="ClientApplications">
+            <EntityTypeMapping TypeName="CloudStorageModel.ClientApplication">
+              <MappingFragment StoreEntitySet="ClientApplications">
+                <ScalarProperty Name="CreatedByUserId" ColumnName="CreatedByUserId" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="ServerAddress" ColumnName="ServerAddress" />
+                <ScalarProperty Name="ApplicationUrl" ColumnName="ApplicationUrl" />
+                <ScalarProperty Name="ApplicationName" ColumnName="ApplicationName" />
+                <ScalarProperty Name="ApiId" ColumnName="ApiId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ShareableLinkRecipients">
+            <EntityTypeMapping TypeName="CloudStorageModel.ShareableLinkRecipient">
+              <MappingFragment StoreEntitySet="ShareableLinkRecipients">
+                <ScalarProperty Name="RecipientADUserId" ColumnName="RecipientADUserId" />
+                <ScalarProperty Name="UserId" ColumnName="UserId" />
+                <ScalarProperty Name="EmailAddress" ColumnName="EmailAddress" />
+                <ScalarProperty Name="ShareableLinkId" ColumnName="ShareableLinkId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="UploadSessions">
+            <EntityTypeMapping TypeName="CloudStorageModel.UploadSession">
+              <MappingFragment StoreEntitySet="UploadSessions">
+                <ScalarProperty Name="ExpiresAt" ColumnName="ExpiresAt" />
+                <ScalarProperty Name="UpdatedAt" ColumnName="UpdatedAt" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="Status" ColumnName="Status" />
+                <ScalarProperty Name="TargetFolderId" ColumnName="TargetFolderId" />
+                <ScalarProperty Name="ClaimedAt" ColumnName="ClaimedAt" />
+                <ScalarProperty Name="ClaimedByUserId" ColumnName="ClaimedByUserId" />
+                <ScalarProperty Name="OwnerUserId" ColumnName="OwnerUserId" />
+                <ScalarProperty Name="FullSha256" ColumnName="FullSha256" />
+                <ScalarProperty Name="SampleSha256" ColumnName="SampleSha256" />
+                <ScalarProperty Name="OffsetBytes" ColumnName="OffsetBytes" />
+                <ScalarProperty Name="SizeBytes" ColumnName="SizeBytes" />
+                <ScalarProperty Name="RelativePath" ColumnName="RelativePath" />
+                <ScalarProperty Name="Filename" ColumnName="Filename" />
+                <ScalarProperty Name="UploadUrl" ColumnName="UploadUrl" />
+                <ScalarProperty Name="TusFileId" ColumnName="TusFileId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="FileBlobs">
+            <EntityTypeMapping TypeName="CloudStorageModel.FileBlob">
+              <MappingFragment StoreEntitySet="FileBlobs">
+                <ScalarProperty Name="LastRefUpdatedAt" ColumnName="LastRefUpdatedAt" />
+                <ScalarProperty Name="Pooled" ColumnName="Pooled" />
+                <ScalarProperty Name="RefCount" ColumnName="RefCount" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="Size" ColumnName="Size" />
+                <ScalarProperty Name="BlobPath" ColumnName="BlobPath" />
+                <ScalarProperty Name="FileHash" ColumnName="FileHash" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="AllowedFileExtensions">
+            <EntityTypeMapping TypeName="CloudStorageModel.AllowedFileExtension">
+              <MappingFragment StoreEntitySet="AllowedFileExtensions">
+                <ScalarProperty Name="CreatedByUserId" ColumnName="CreatedByUserId" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="IsEnabled" ColumnName="IsEnabled" />
+                <ScalarProperty Name="Extension" ColumnName="Extension" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SystemSettings">
+            <EntityTypeMapping TypeName="CloudStorageModel.SystemSetting">
+              <MappingFragment StoreEntitySet="SystemSettings">
+                <ScalarProperty Name="UpdatedAt" ColumnName="UpdatedAt" />
+                <ScalarProperty Name="Value" ColumnName="Value" />
+                <ScalarProperty Name="Key" ColumnName="Key" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Departments">
+            <EntityTypeMapping TypeName="CloudStorageModel.Department">
+              <MappingFragment StoreEntitySet="Departments">
+                <ScalarProperty Name="DepartmentNameCatalogId" ColumnName="DepartmentNameCatalogId" />
+                <ScalarProperty Name="ParentDepartmentId" ColumnName="ParentDepartmentId" />
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="IsCopyFromOtherDriveAllowed" ColumnName="IsCopyFromOtherDriveAllowed" />
+                <ScalarProperty Name="IsExternalSharingAllowed" ColumnName="IsExternalSharingAllowed" />
+                <ScalarProperty Name="IsSharingAllowed" ColumnName="IsSharingAllowed" />
+                <ScalarProperty Name="IsDownloadingAllowed" ColumnName="IsDownloadingAllowed" />
+                <ScalarProperty Name="IsZippingAllowed" ColumnName="IsZippingAllowed" />
+                <ScalarProperty Name="IsVisibilityAllowed" ColumnName="IsVisibilityAllowed" />
+                <ScalarProperty Name="DataMonitorUserId" ColumnName="DataMonitorUserId" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <AssociationSetMapping Name="DepartmentAllowedExtensions" TypeName="CloudStorageModel.DepartmentAllowedExtensions" StoreEntitySet="DepartmentAllowedExtensions">
+            <EndProperty Name="AllowedFileExtension">
+              <ScalarProperty Name="Id" ColumnName="ExtensionId" />
+            </EndProperty>
+            <EndProperty Name="Department">
+              <ScalarProperty Name="Id" ColumnName="DepartmentId" />
+            </EndProperty>
+          </AssociationSetMapping>
+          <EntitySetMapping Name="DepartmentNameCatalogs">
+            <EntityTypeMapping TypeName="CloudStorageModel.DepartmentNameCatalog">
+              <MappingFragment StoreEntitySet="DepartmentNameCatalog">
+                <ScalarProperty Name="CreatedAt" ColumnName="CreatedAt" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="true" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="None" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>

@@ -1,0 +1,269 @@
+﻿@model BOBDrive.ViewModels.MonitorArchiveViewModel
+@{
+    ViewBag.Title = "Department Data Archive - " + Model.DepartmentName;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    // Optional: Bin root id, if controller set it (used only if you later want it in JS)
+    int binRootId = 0;
+    if (ViewBag.BinFolderId != null)
+    {
+        int.TryParse(ViewBag.BinFolderId.ToString(), out binRootId);
+    }
+}
+
+<h2>Department Archive: @Model.DepartmentName</h2>
+@Html.AntiForgeryToken()
+<hr />
+
+@if (!Model.Roots.Any())
+{
+    <div class="alert alert-info">
+        No monitor root found for this department yet. Data will appear here after users are removed.
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <h4>Archive Roots</h4>
+            <div class="list-group" id="archiveRootsList">
+                @foreach (var root in Model.Roots)
+                {
+                    <a href="javascript:void(0);"
+                       class="list-group-item archive-root-link"
+                       data-folderid="@root.Id">
+                        <i class="glyphicon glyphicon-folder-open"></i>
+                        @root.Name
+                    </a>
+                }
+            </div>
+        </div>
+        <div class="col-md-8">
+            <h4>Contents</h4>
+            <div id="archiveContentsWrapper">
+                <div class="alert alert-info">
+                    Select an archive root on the left to view its contents.
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section scripts {
+    <script type="text/javascript">
+        (function () {
+            var deptId = @Model.DepartmentId;
+            var token = $('input[name="__RequestVerificationToken"]').val();
+
+            function showMessage(text, type) {
+                type = type || 'info';
+                var $c = $('#actionFeedback');
+                if (!$c.length) {
+                    $('body').append('<div id="actionFeedback" style="position:fixed;top:15px;right:15px;z-index:30000;width:280px;"></div>');
+                    $c = $('#actionFeedback');
+                }
+                var $box = $('<div class="alert alert-' + type + ' alert-dismissible" style="margin-bottom:8px;padding:10px 12px;">' +
+                    '<button type="button" class="close" data-dismiss="alert">&times;</button>' +
+                    $('<div/>').text(text).html() +
+                    '</div>');
+                $c.append($box);
+                setTimeout(function () { $box.fadeOut(400, function () { $(this).remove(); }); }, 4000);
+            }
+
+            function loadFolder(folderId, pushState) {
+                if (!folderId) return;
+
+                if (window.GlobalLoading) GlobalLoading.show('Loading archive contents...');
+
+                $('#archiveContentsWrapper').html('<div class="alert alert-info">Loading...</div>');
+
+                $.get('@Url.Action("GetArchiveFolderContents", "MonitorDashboard")',
+                    { departmentId: deptId, folderId: folderId })
+                    .done(function (html) {
+                        $('#archiveContentsWrapper').html(html);
+
+                        // Update active root highlight
+                        $('#archiveRootsList .list-group-item').removeClass('active');
+                        $('#archiveRootsList .archive-root-link[data-folderid="' + folderId + '"]').addClass('active');
+
+                        bindContentsEvents(); // re-bind events inside partial
+
+                        if (pushState) {
+                            var url = '@Url.Action("Archive", "MonitorDashboard")' + '?departmentId=' + deptId + '&folderId=' + folderId;
+                            history.pushState({ folderId: folderId }, '', url);
+                        }
+                    })
+                    .fail(function () {
+                        $('#archiveContentsWrapper').html('<div class="alert alert-danger">Failed to load folder contents.</div>');
+                    })
+                    .always(function () {
+                        if (window.GlobalLoading) GlobalLoading.hide();
+                    });
+            }
+
+            function getSelectedItems() {
+                var items = [];
+                $('.archive-select-checkbox:checked').each(function () {
+                    items.push({
+                        type: $(this).data('type'),
+                        id: $(this).data('id')
+                    });
+                });
+                return items;
+            }
+
+            function bindContentsEvents() {
+                // Select all
+                $('#selectAllArchiveItems').off('change').on('change', function () {
+                    var checked = $(this).prop('checked');
+                    $('.archive-select-checkbox').not(':disabled').prop('checked', checked);
+                });
+
+                // Click folder in contents
+                $('.archive-folder-link').off('click').on('click', function () {
+                    var fid = $(this).data('folderid');
+                    loadFolder(fid, true);
+                });
+
+                // Click breadcrumb
+                $('.archive-breadcrumb-link').off('click').on('click', function () {
+                    var fid = $(this).data('folderid');
+                    loadFolder(fid, true);
+                });
+
+                // Transfer selected
+                $('#transferSelectedBtn').off('click').on('click', function () {
+                    var target = $('#targetUserExternalId').val().trim();
+                    if (!target) {
+                        alert('Please enter the target user ExternalUserId.');
+                        return;
+                    }
+
+                    var items = getSelectedItems();
+                    if (!items.length) {
+                        alert('Select at least one file or folder to transfer.');
+                        return;
+                    }
+
+                    if (!confirm('Transfer ' + items.length + ' item(s) to ' + target + '?')) return;
+
+                    if (window.GlobalLoading) GlobalLoading.show('Transferring items...');
+
+                    var index = 0;
+                    function next() {
+                        if (index >= items.length) {
+                            showMessage('Transfer complete.', 'success');
+                            // reload current folder
+                            var state = history.state;
+                            var fid = state && state.folderId ? state.folderId : (@Model.Roots.FirstOrDefault()?.Id || 0);
+                            if (fid) {
+                                loadFolder(fid, false);
+                            } else {
+                                if (window.GlobalLoading) GlobalLoading.hide();
+                            }
+                            return;
+                        }
+
+                        var it = items[index++];
+                        $.ajax({
+                            url: '@Url.Action("TransferItem", "MonitorDashboard")',
+                            type: 'POST',
+                            data: {
+                                __RequestVerificationToken: token,
+                                ItemType: it.type,
+                                ItemId: it.id,
+                                DepartmentId: deptId,
+                                TargetUserExternalId: target
+                            }
+                        }).done(function (resp) {
+                            if (resp && resp.success) {
+                                showMessage(resp.message || 'Item transferred.', 'success');
+                            } else {
+                                showMessage(resp && resp.message ? resp.message : 'Transfer failed for one item.', 'danger');
+                            }
+                            next();
+                        }).fail(function () {
+                            showMessage('Server error during transfer.', 'danger');
+                            next();
+                        });
+                    }
+                    next();
+                });
+
+                // Delete selected
+                $('#deleteSelectedBtn').off('click').on('click', function () {
+                    var items = getSelectedItems();
+                    if (!items.length) {
+                        alert('Select at least one file or folder to delete.');
+                        return;
+                    }
+
+                    if (!confirm('Are you sure you want to delete the selected ' + items.length + ' item(s)?')) {
+                        return;
+                    }
+
+                    if (window.GlobalLoading) GlobalLoading.show('Deleting selected items...');
+
+                    var index = 0;
+                    function next() {
+                        if (index >= items.length) {
+                            showMessage('Delete requested for all selected items.', 'info');
+                            var state = history.state;
+                            var fid = state && state.folderId ? state.folderId : (@Model.Roots.FirstOrDefault()?.Id || 0);
+                            if (fid) {
+                                loadFolder(fid, false);
+                            } else {
+                                if (window.GlobalLoading) GlobalLoading.hide();
+                            }
+                            return;
+                        }
+                        var it = items[index++];
+                        $.ajax({
+                            url: '@Url.Action("DeleteItem", "MonitorDashboard")',
+                            type: 'POST',
+                            data: {
+                                __RequestVerificationToken: token,
+                                itemType: it.type,
+                                itemId: it.id,
+                                departmentId: deptId
+                            }
+                        }).done(function (resp) {
+                            if (resp && resp.success) {
+                                showMessage(resp.message || 'Delete scheduled.', 'info');
+                            } else {
+                                showMessage(resp && resp.message ? resp.message : 'Delete failed for one item.', 'danger');
+                            }
+                            next();
+                        }).fail(function () {
+                            showMessage('Server error during delete.', 'danger');
+                            next();
+                        });
+                    }
+                    next();
+                });
+            }
+
+            // Click root on left
+            $('.archive-root-link').on('click', function () {
+                var fid = $(this).data('folderid');
+                loadFolder(fid, true);
+            });
+
+            // Handle browser back/forward
+            window.onpopstate = function (e) {
+                var state = e.state;
+                if (state && state.folderId) {
+                    loadFolder(state.folderId, false);
+                } else {
+                    $('#archiveContentsWrapper').html('<div class="alert alert-info">Select an archive root on the left to view its contents.</div>');
+                }
+            };
+
+            // Optional: auto-load first root on initial page load
+            @if (Model.Roots.Any())
+            {
+                @:loadFolder(@Model.Roots.First().Id, true);
+            }
+        })();
+    </script>
+}

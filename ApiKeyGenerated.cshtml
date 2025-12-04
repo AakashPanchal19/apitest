@@ -1,0 +1,371 @@
+﻿@model BOBDrive.ViewModels.Admin.ApiKeyGeneratedViewModel
+@{
+    ViewBag.Title = "API Key Generated";
+}
+
+<style>
+    .api-key-display {
+        background-color: #e9ecef;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 1.2rem;
+        margin-bottom: 20px;
+        word-wrap: break-word;
+    }
+
+    .code-snippet-container {
+        position: relative;
+        margin-top: -1px;
+    }
+
+        .code-snippet-container .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+            .code-snippet-container .copy-btn:hover {
+                opacity: 1;
+            }
+
+        .code-snippet-container pre {
+            background-color: #282c34;
+            color: #abb2bf;
+            padding: 20px;
+            padding-top: 40px;
+            border-radius: 0 0 5px 5px;
+            margin-top: 0;
+            overflow-x: auto;
+        }
+</style>
+
+<h2>✅ API Key Generated for "@Model.ApplicationName"</h2>
+<p>Store this API Key securely. It is required to authenticate your application with BOBDrive.</p>
+
+<h4>Your New API Key</h4>
+<div class="api-key-display">
+    <strong>@Model.GeneratedApiId</strong>
+</div>
+<hr />
+
+<h4>Integration Code Examples</h4>
+<p>Copy &amp; paste the snippet for your preferred environment. Fill in your BOBDrive Base URL if prompted.</p>
+
+<ul class="nav nav-tabs" role="tablist">
+    <li role="presentation" class="active"><a href="#js" aria-controls="js" role="tab" data-toggle="tab">JavaScript</a></li>
+    <li role="presentation"><a href="#python" aria-controls="python" role="tab" data-toggle="tab">Python</a></li>
+    <li role="presentation"><a href="#csharp" aria-controls="csharp" role="tab" data-toggle="tab">C#</a></li>
+    <li role="presentation"><a href="#java" aria-controls="java" role="tab" data-toggle="tab">Java</a></li>
+    <li role="presentation"><a href="#go" aria-controls="go" role="tab" data-toggle="tab">Go</a></li>
+    <li role="presentation"><a href="#php" aria-controls="php" role="tab" data-toggle="tab">PHP</a></li>
+</ul>
+
+<div class="tab-content">
+    <!-- JavaScript -->
+    <div role="tabpanel" class="tab-pane active" id="js">
+        <div class="code-snippet-container">
+            <button class="copy-btn" title="Copy to clipboard">Copy</button>
+            <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;meta charset="utf-8" /&gt;
+    &lt;title&gt;BOBDrive Picker Integration Test (JS)&lt;/title&gt;
+    &lt;style&gt;
+        body { font-family: sans-serif; padding: 20px; max-width:800px; margin:auto; }
+        .form-group { margin-bottom:1.5em; }
+        label { display:block; margin-bottom:5px; font-weight:bold; }
+        input { width:100%; padding:8px; box-sizing:border-box; }
+        button { padding:10px 15px; cursor:pointer; }
+        #results-container { margin-top:2em; display:none; border-top:2px solid green; padding-top:1em; }
+        #results { white-space:pre-wrap; background:#f0f0f0; padding:1em; }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;📂 BOBDrive Picker Integration Test (JS)&lt;/h1&gt;
+    &lt;div class="form-group"&gt;
+        &lt;label for="bobdriveUrl"&gt;1. BOBDrive Base URL:&lt;/label&gt;
+        &lt;input type="text" id="bobdriveUrl" value="@Model.BobDriveUrl" /&gt;
+    &lt;/div&gt;
+    &lt;div class="form-group"&gt;
+        &lt;label for="apiId"&gt;2. API ID:&lt;/label&gt;
+        &lt;input type="text" id="apiId" value="@Model.GeneratedApiId" /&gt;
+    &lt;/div&gt;
+    &lt;div class="form-group"&gt;
+        &lt;label for="username"&gt;3. Username:&lt;/label&gt;
+        &lt;input type="text" id="username" placeholder="e.g. apc01484" /&gt;
+    &lt;/div&gt;
+    &lt;div class="form-group"&gt;
+        &lt;label for="roleId"&gt;4. Role ID (Optional):&lt;/label&gt;
+        &lt;input type="number" id="roleId" /&gt;
+    &lt;/div&gt;
+    &lt;button id="openPickerBtn"&gt;Launch BOBDrive Picker&lt;/button&gt;
+    &lt;div id="results-container"&gt;
+        &lt;h2&gt;✅ Data Received!&lt;/h2&gt;
+        &lt;div id="results"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;script&gt;
+ (function(){
+        const BTN = document.getElementById("openPickerBtn");
+        BTN.addEventListener("click", function(){
+            const base  = document.getElementById("bobdriveUrl").value.trim().replace(/\/$/, "");
+            const apiId = document.getElementById("apiId").value.trim();
+            const user  = document.getElementById("username").value.trim();
+            const role  = document.getElementById("roleId").value.trim();
+            if (!base || !apiId || !user) {
+                alert("Base URL, API ID and Username are required.");
+                return;
+            }
+            const pickerWindowName = "BOBDrivePicker";
+            // First, open the window with a blank page.
+            const pickerWindow = window.open('about:blank', pickerWindowName, "width=1024,height=768");
+            if (!pickerWindow) {
+                alert("Popup was blocked. Please allow popups for this site.");
+                return;
+            }
+            // Create a form element dynamically
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = base + '/Integration/Initiate';
+            form.target = pickerWindowName; // Target the new popup window
+            const params = { 'apiId': apiId, 'username': user, 'roleId': role };
+            // Create hidden input fields for each parameter
+            for (let key in params) {
+                if (params.hasOwnProperty(key) && params[key]) {
+                    const hiddenField = document.createElement('input');
+                    hiddenField.type = 'hidden';
+                    hiddenField.name = key;
+                    hiddenField.value = params[key];
+                    form.appendChild(hiddenField);
+                }
+            }
+            // Append the form to the document, submit it, and then remove it
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        });
+        window.addEventListener("message", function(event){
+            const expectedOrigin = new URL(document.getElementById("bobdriveUrl").value.trim()).origin;
+            if (event.origin !== expectedOrigin) return;
+            document.getElementById("results").textContent = JSON.stringify(event.data, null, 2);
+            document.getElementById("results-container").style.display = "block";
+        });
+    })();
+    &lt;/script&gt;
+</code></pre>
+        </div>
+    </div>
+
+    <!-- Python -->
+    <div role="tabpanel" class="tab-pane" id="python">
+        <div class="code-snippet-container">
+            <button class="copy-btn" title="Copy to clipboard">Copy</button>
+            <pre><code># Python CLI Example
+import webbrowser
+from urllib.parse import urlencode
+def main():
+    base    = input("1. Enter BOBDrive Base URL (default: @Model.BobDriveUrl): ").strip() or "@Model.BobDriveUrl"
+    api_id  = input("2. Paste your new API ID here (default: @Model.GeneratedApiId): ").strip() or "@Model.GeneratedApiId"
+    user    = input("3. Enter Username: ").strip()
+    role    = input("4. Enter Role ID (optional): ").strip()
+    if not (base and api_id and user):
+        print("Base URL, API ID and Username are required.")
+        return
+    params = {'apiId': api_id, 'username': user}
+    if role:
+        params['roleId'] = role
+    picker_url = f"{base}/Integration/Initiate?{urlencode(params)}"
+    print("\nLaunching:", picker_url)
+    webbrowser.open(picker_url)
+if __name__ == "__main__":
+    main()
+</code></pre>
+        </div>
+    </div>
+
+    <!-- C# -->
+    <div role="tabpanel" class="tab-pane" id="csharp">
+        <div class="code-snippet-container">
+            <button class="copy-btn" title="Copy to clipboard">Copy</button>
+            <pre><code>// C# Console App Example
+using System;
+using System.Web;
+using System.Diagnostics;
+namespace BobDriveTest
+{
+    class Program
+    {
+        static void Main()
+        {
+            Console.Write("1. Enter BOBDrive Base URL (default: @Model.BobDriveUrl): ");
+            var baseUrl = Console.ReadLine().Trim().TrimEnd('/');
+            Console.Write("2. Paste your new API ID here (default: @Model.GeneratedApiId): ");
+            var apiIdInput = Console.ReadLine().Trim();
+            var apiId = string.IsNullOrEmpty(apiIdInput) ? "@Model.GeneratedApiId" : apiIdInput;
+            Console.Write("3. Enter Username: ");
+            var username = Console.ReadLine().Trim();
+            Console.Write("4. Enter Role ID (optional): ");
+            var role = Console.ReadLine().Trim();
+            if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(apiId) || string.IsNullOrEmpty(username))
+            {
+                Console.WriteLine("Base URL, API ID and Username are required.");
+                return;
+            }
+            var uriBuilder = new UriBuilder(baseUrl) { Path = "/Integration/Initiate" };
+            var query = HttpUtility.ParseQueryString(string.Empty);
+            query["apiId"] = apiId;
+            query["username"] = username;
+            if (!string.IsNullOrEmpty(role)) query["roleId"] = role;
+            uriBuilder.Query = query.ToString();
+            var url = uriBuilder.ToString();
+            Console.WriteLine($"\nLaunching: {url}");
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+    }
+}
+</code></pre>
+        </div>
+    </div>
+
+    <!-- Java -->
+    <div role="tabpanel" class="tab-pane" id="java">
+        <div class="code-snippet-container">
+            <button class="copy-btn" title="Copy to clipboard">Copy</button>
+            <pre><code>// Java Console App Example
+import java.awt.Desktop;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
+public class BobDriveTest {
+    public static void main(String[] args) throws Exception {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("1. BOBDrive Base URL (default: @Model.BobDriveUrl): ");
+        String base = sc.nextLine().trim().replaceAll("/$", "");
+        if(base.isEmpty()) base = "@Model.BobDriveUrl";
+        System.out.print("2. API ID (default: @Model.GeneratedApiId): ");
+        String apiId = sc.nextLine().trim(); if(apiId.isEmpty()) apiId = "@Model.GeneratedApiId";
+        System.out.print("3. Username: ");
+        String user = sc.nextLine().trim();
+        System.out.print("4. Role ID (optional): ");
+        String role = sc.nextLine().trim();
+        sc.close();
+        StringBuilder sb = new StringBuilder();
+        sb.append(base).append("/Integration/Initiate?")
+          .append("apiId=").append(URLEncoder.encode(apiId, StandardCharsets.UTF_8))
+          .append("&username=").append(URLEncoder.encode(user, StandardCharsets.UTF_8));
+        if(!role.isEmpty()) sb.append("&roleId=").append(URLEncoder.encode(role, StandardCharsets.UTF_8));
+        String pickerUrl = sb.toString();
+        System.out.println("\nLaunching: " + pickerUrl);
+        if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(new URI(pickerUrl));
+    }
+}
+</code></pre>
+        </div>
+    </div>
+
+    <!-- Go -->
+    <div role="tabpanel" class="tab-pane" id="go">
+        <div class="code-snippet-container">
+            <button class="copy-btn" title="Copy to clipboard">Copy</button>
+            <pre><code>// Go Console App Example
+package main
+import (
+    "bufio"
+    "fmt"
+    "net/url"
+    "os"
+    "os/exec"
+    "strings"
+)
+func main() {
+    reader := bufio.NewReader(os.Stdin)
+    fmt.Print("1. BOBDrive Base URL (default: @Model.BobDriveUrl): ")
+    base, _ := reader.ReadString('\n')
+    base = strings.TrimSpace(strings.TrimRight(base, "/"))
+    if base == "" { base = "@Model.BobDriveUrl" }
+    fmt.Print("2. API ID (default: @Model.GeneratedApiId): ")
+    apiId, _ := reader.ReadString('\n')
+    apiId = strings.TrimSpace(apiId)
+    if apiId == "" { apiId = "@Model.GeneratedApiId" }
+    fmt.Print("3. Username: ")
+    user, _ := reader.ReadString('\n')
+    user = strings.TrimSpace(user)
+    fmt.Print("4. Role ID (optional): ")
+    role, _ := reader.ReadString('\n')
+    role = strings.TrimSpace(role)
+    if base == "" || apiId == "" || user == "" {
+        fmt.Println("Base URL, API ID and Username are required.")
+        return
+    }
+    u, _ := url.Parse(base + "/Integration/Initiate")
+    q := u.Query()
+    q.Set("apiId", apiId)
+    q.Set("username", user)
+    if role != "" { q.Set("roleId", role) }
+    u.RawQuery = q.Encode()
+    pickerUrl := u.String()
+    fmt.Println("\nLaunching:", pickerUrl)
+    exec.Command("xdg-open", pickerUrl).Start()
+}
+</code></pre>
+        </div>
+    </div>
+
+    <!-- PHP -->
+    <div role="tabpanel" class="tab-pane" id="php">
+        <div class="code-snippet-container">
+            <button class="copy-btn" title="Copy to clipboard">Copy</button>
+            <pre><code>#!/usr/bin/env php
+<?php
+// PHP CLI Example
+$stdin = fopen('php://stdin','r');
+function prompt($msg) {
+    echo $msg;
+    return trim(fgets(STDIN));
+}
+$base     = rtrim(prompt("1. BOBDrive Base URL (default: @Model.BobDriveUrl): "), '/');
+if (!$base) { $base = "@Model.BobDriveUrl"; }
+$apiId    = prompt("2. API ID (default: @Model.GeneratedApiId): "); if(!$apiId) $apiId = "@Model.GeneratedApiId";
+$username = prompt("3. Username: ");
+$role     = prompt("4. Role ID (optional): ");
+if (!$base || !$apiId || !$username) {
+    echo "Base URL, API ID and Username are required.\n";
+    exit(1);
+}
+$params = ['apiId'=>$apiId, 'username'=>$username];
+if ($role !== '') $params['roleId'] = $role;
+$pickerUrl = $base . '/Integration/Initiate?' . http_build_query($params);
+echo "\nLaunching: $pickerUrl\n";
+if (PHP_OS_FAMILY === 'Darwin')       exec("open " . escapeshellarg($pickerUrl));
+elseif (PHP_OS_FAMILY === 'Windows') pclose(popen("start " . escapeshellarg($pickerUrl), "r"));
+else                                  exec("xdg-open " . escapeshellarg($pickerUrl));
+?>
+</code></pre>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.copy-btn').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var code = this.parentElement.querySelector('pre code').innerText;
+                    navigator.clipboard.writeText(code).then(function () {
+                        var orig = button.innerText;
+                        button.innerText = 'Copied!';
+                        setTimeout(function () { button.innerText = orig; }, 2000);
+                    });
+                });
+            });
+        });
+    </script>
+}

@@ -1,0 +1,79 @@
+@model BOBDrive.Models.Department
+@using System.Linq
+@using System.Collections.Generic
+@using BOBDrive.Models
+@{
+    var lookup = ViewData["Lookup"] as IDictionary<int, List<Department>> ?? new Dictionary<int, List<Department>>();
+    var kids = lookup.ContainsKey(Model.Id) ? lookup[Model.Id].OrderBy(d => d.Name).ToList() : new List<Department>();
+
+    var childViewData = new ViewDataDictionary(ViewData);
+    childViewData["Lookup"] = lookup;
+
+    var currentMonitorExternalId = Model.User != null ? Model.User.ExternalUserId : null;
+}
+
+<li class="hierarchy-node @(Model.ParentDepartmentId == null ? "root-node" : "child-node")"
+    data-department-id="@Model.Id"
+    data-current-monitor="@currentMonitorExternalId">
+    <div class="hierarchy-node-header">
+        <div style="flex:1 1 auto; min-width:0;">
+            <strong>@Html.Encode(Model.Name)</strong>
+            <div style="font-size:12px;color:#666;margin-top:4px;">
+                <span>
+                    Data Monitor:
+                    @if (Model.User != null)
+                    {
+                        <text>@Html.Encode(Model.User.FullName) (@Html.Encode(Model.User.ExternalUserId))</text>
+                    }
+                    else
+                    {
+                        <em>-</em>
+                    }
+                </span>
+                <span style="margin-left:10px;">
+                    Policies:
+                    Vis:@(Model.IsVisibilityAllowed ? "Y" : "N"),
+                    Dnld:@(Model.IsDownloadingAllowed ? "Y" : "N"),
+                    Zip:@(Model.IsZippingAllowed ? "Y" : "N"),
+                    Share:@(Model.IsSharingAllowed ? "Y" : "N"),
+                    ExtShare:@(Model.IsExternalSharingAllowed ? "Y" : "N"),
+                    CopyCross:@(Model.IsCopyFromOtherDriveAllowed ? "Y" : "N")
+                </span>
+            </div>
+        </div>
+
+        <div style="white-space:nowrap; margin-left:12px;">
+            @using (Html.BeginForm("CreateChild", "AdminDashboard", FormMethod.Post, new { @class = "form-inline add-child-form", role = "form", style = "display:inline-block; margin-right:6px;" }))
+            {
+                @Html.AntiForgeryToken()
+                @Html.Hidden("parentId", Model.Id)
+                <div class="form-group" style="display:inline-block; margin-right:6px;">
+                    <input type="text" name="childName" placeholder="New child name" class="form-control input-sm child-name-input" style="width:150px;" required="required" />
+                </div>
+                <button type="submit" class="btn btn-xs btn-success" title="Add child">Add Child</button>
+            }
+
+            @using (Html.BeginForm("AssignDataMonitor", "AdminDashboard", FormMethod.Post, new { @class = "form-inline assign-monitor-form", role = "form", style = "display:inline-block; margin-left:6px;" }))
+            {
+                @Html.AntiForgeryToken()
+                @Html.Hidden("departmentId", Model.Id)
+                <div class="form-group" style="display:inline-block; margin-right:6px;">
+                    <input type="text" name="externalUserId" placeholder="AD user id" class="form-control input-sm data-monitor-input" style="width:140px;" />
+                </div>
+                <button type="submit" class="btn btn-xs btn-info" title="Assign data monitor">Assign</button>
+            }
+
+            <a href="@Url.Action("EditDepartment", "AdminDashboard", new { id = Model.Id })" class="btn btn-xs btn-default" style="margin-left:6px;">Edit</a>
+        </div>
+    </div>
+
+    @if (kids.Any())
+    {
+        <ul class="hierarchy-list children-container">
+            @foreach (var c in kids)
+            {
+                @Html.Partial("_DepartmentNode", c, childViewData)
+            }
+        </ul>
+    }
+</li>

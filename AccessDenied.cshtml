@@ -1,0 +1,36 @@
+﻿<!-- File: Views/Shared/AccessDenied.cshtml (NEW FILE) -->
+@{
+    ViewBag.Title = "Access Denied";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container" style="margin-top: 50px;">
+    <div class="row">
+        <div class="col-md-8 col-md-offset-2">
+            <div class="panel panel-danger">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        <i class="glyphicon glyphicon-ban-circle"></i> Access Denied
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="glyphicon glyphicon-lock" style="font-size: 72px; color: #d9534f;"></i>
+                    </div>
+                    <h4>You do not have permission to access this resource.</h4>
+                    <p>
+                        This area is restricted to administrators only. If you believe you should have access,
+                        please contact your system administrator.
+                    </p>
+                    <hr />
+                    <p><strong>Current User:</strong> @User.Identity.Name</p>
+                    <p><strong>Required Role:</strong> Administrator</p>
+                    <hr />
+                    <a href="@Url.Action("Index", "Home")" class="btn btn-primary">
+                        <i class="glyphicon glyphicon-home"></i> Return to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

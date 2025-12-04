@@ -1,0 +1,52 @@
+﻿@model BOBDrive.ViewModels.MonitorDashboardViewModel
+@{
+    ViewBag.Title = "Data Monitor Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Data Monitor Dashboard</h2>
+
+@if (TempData["MonitorMessage"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["MonitorMessage"]
+    </div>
+}
+
+@if (Model.Department == null)
+{
+    <div class="alert alert-info">
+        You are currently not assigned as a data monitor for any department.
+    </div>
+}
+else
+{
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <strong>Monitor:</strong> @Model.MonitorUserName
+        </div>
+        <div class="panel-body">
+            <h4>Department you monitor</h4>
+            <p>
+                <strong>@Model.Department.DepartmentName</strong>
+            </p>
+
+            <p>
+                Pending approvals in this department:
+                <span class="badge">@Model.Department.PendingUsers.Count</span>
+            </p>
+
+            <p>
+                <a href="@Url.Action("Department", "MonitorDashboard", new { id = Model.Department.DepartmentId })"
+                   class="btn btn-primary">
+                    Open Department View
+                </a>
+
+                <a href="@Url.Action("Archive", "MonitorDashboard", new { departmentId = Model.Department.DepartmentId })"
+                   class="btn btn-default">
+                    View Department Archive
+                </a>
+            </p>
+        </div>
+    </div>
+}

@@ -1,0 +1,104 @@
+﻿@model BOBDrive.ViewModels.FolderViewModel
+<input type="hidden" id="currentFolderNameFromPartial" value="@(Model.CurrentFolder != null ? Model.CurrentFolder.Name : "Root")" />
+<input type="hidden" id="currentFolderIdFromPartial" value="@(Model.CurrentFolder != null ? Model.CurrentFolder.Id : 0)" />
+<input type="hidden" id="isCurrentFolderRoot" value="@(Model.CurrentFolder != null && Model.CurrentFolder.ParentFolderId == null ? "true" : "false")" />
+
+<div class="table-responsive">
+    <table class="table table-hover" id="driveListingTable">
+        <thead>
+            <tr>
+                <th style="width:30px;"><input type="checkbox" id="selectAllFiles" title="Select/Deselect All" /></th>
+                <th>Name</th>
+                <th style="width:130px;">Size</th>
+                <th style="width:170px;">Password</th>
+                <th style="width:120px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.ParentOfCurrentFolderId.HasValue)
+            {
+                <tr class="folder-row nav-up"
+                    data-folderid="@Model.ParentOfCurrentFolderId"
+                    data-folder-name=".."
+                    data-root-owner="@(Model.CurrentFolder != null ? (Model.CurrentFolder.OwnerUserId ?? 0) : 0)"
+                    style="cursor:pointer;">
+                    <td></td>
+                    <td colspan="4"><i class="glyphicon glyphicon-arrow-left"></i> ...</td>
+                </tr>
+            }
+
+            @foreach (var folder in Model.SubFolders)
+            {
+                <tr class="folder-row"
+                    data-folderid="@folder.Id"
+                    data-folder-name="@folder.Name"
+                    data-root-owner="@(folder.OwnerUserId ?? 0)"
+                    style="cursor:pointer;">
+                    <td>
+                        <input type="checkbox"
+                               class="folder-select-checkbox"
+                               data-folderid="@folder.Id"
+                               data-folder-name="@folder.Name" />
+                    </td>
+                    <td><i class="glyphicon glyphicon-folder-close"></i> @folder.Name</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td></td>
+                </tr>
+            }
+
+            @foreach (var file in Model.Files)
+            {
+                <tr class="file-row"
+                    data-fileid="@file.Id"
+                    data-file-name="@file.Name"
+                    data-root-owner="@(file.Folder != null ? (file.Folder.OwnerUserId ?? 0) : 0)">
+                    <td>
+                        <input type="checkbox"
+                               class="file-select-checkbox"
+                               data-fileid="@file.Id"
+                               data-file-name="@file.Name" />
+                    </td>
+                    <td>
+                        <i class="glyphicon glyphicon-file"></i>
+                        <a href="@Url.Action("Download", "File", new { id = file.Id })"
+                           title="Download @file.Name">@file.Name</a>
+                    </td>
+                    <td>@String.Format("{0:0.00} MB", (double)file.Size / (1024 * 1024))</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(file.ZipPassword))
+                        {
+                            <div class="input-group input-group-sm" style="max-width:190px;">
+                                <span class="input-group-addon" title="Zip Password">
+                                    <i class="glyphicon glyphicon-lock"></i>
+                                </span>
+                                <input type="text"
+                                       class="form-control zip-password-text"
+                                       value="@file.ZipPassword"
+                                       readonly
+                                       style="background:white;" />
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default copy-password-btn"
+                                            type="button"
+                                            title="Copy Password">
+                                        <i class="glyphicon glyphicon-copy"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        }
+                    </td>
+                    <td>
+                        @if (!Model.IsPickerModel)
+                        {
+                            <a href="@Url.Action("Download", "File", new { id = file.Id })"
+                               class="btn btn-default btn-xs"
+                               title="Download File">
+                                <i class="glyphicon glyphicon-download-alt"></i>
+                            </a>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

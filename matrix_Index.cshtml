@@ -1,0 +1,1950 @@
+﻿@{
+    ViewBag.Title = "Server Matrix";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    :root {
+        --surface: rgba(255, 255, 255, 0.72);
+        --surface-2: rgba(255, 255, 255, 0.55);
+        --text: #111;
+        --text-muted: #5b5b5b;
+        --border: rgba(0, 0, 0, 0.08);
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06);
+        --accent: #007aff;
+        --cpu: #ff3b30;
+        --mem: #af52de;
+        --disk: #0a84ff;
+        --net: #34c759;
+        --card-radius: 14px;
+        --bar-radius: 8px;
+        --num-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+        --grid: rgba(0, 0, 0, 0.06);
+        --title-dot-glow: rgba(0,122,255,0.25);
+        --hover-row: rgba(0,0,0,0.03);
+        --log-bg: #050608;
+        --log-fg: #f5f5f7;
+        --log-muted: #8e8e93;
+        --log-border: rgba(255,255,255,0.14);
+    }
+
+    html, body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+        color: var(--text);
+    }
+
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+        .container h2 {
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+    .title-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--title-dot-glow);
+    }
+
+    .muted {
+        color: var(--text-muted);
+    }
+
+    @@media (min-width: 1200px) {
+        #matrix-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 2.1fr) minmax(360px, 1.2fr);
+            gap: 18px;
+        }
+    }
+
+    @@media (max-width: 1199px) {
+        #matrix-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+    }
+
+    #loadingOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255,255,255,0.75);
+        backdrop-filter: saturate(180%) blur(16px);
+        -webkit-backdrop-filter: saturate(180%) blur(16px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 16px;
+        color: var(--text);
+    }
+
+    .spinner {
+        width: 44px;
+        height: 44px;
+        border: 3px solid rgba(0,122,255,0.25);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+        margin-bottom: 12px;
+        box-shadow: inset 0 0 12px rgba(0,0,0,0.06);
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .overlay-note {
+        color: var(--text-muted);
+        margin-top: 6px;
+        font-size: 12px;
+        max-width: 520px;
+    }
+
+    .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: flex-end;
+        margin-bottom: 14px;
+    }
+
+    .toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .switch {
+        position: relative;
+        width: 42px;
+        height: 24px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+        box-shadow: var(--shadow);
+    }
+
+        .switch::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            transition: transform 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .switch.on {
+            background: rgba(0,122,255,0.20);
+        }
+
+            .switch.on::after {
+                transform: translateX(18px);
+            }
+
+    .panel {
+        border: 1px solid var(--border) !important;
+        border-radius: var(--card-radius) !important;
+        background: var(--surface) !important;
+        backdrop-filter: saturate(180%) blur(14px);
+        -webkit-backdrop-filter: saturate(180%) blur(14px);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .panel-heading {
+        background: linear-gradient(to bottom, rgba(255,255,255,0.6), var(--surface));
+        border-bottom: 1px solid var(--border) !important;
+        color: var(--text) !important;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+
+    .panel-body {
+        padding: 14px 14px 10px 14px;
+    }
+
+    .stat {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: space-between;
+    }
+
+        .stat .icon {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: white;
+            box-shadow: inset 0 -8px 18px rgba(0,0,0,0.12);
+        }
+
+    .icon.cpu {
+        background: var(--cpu);
+    }
+
+    .icon.mem {
+        background: var(--mem);
+    }
+
+    .icon.disk {
+        background: var(--disk);
+    }
+
+    .icon.net {
+        background: var(--net);
+    }
+
+    .stat .value {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        font-family: var(--num-font);
+        transition: color 0.25s ease;
+    }
+
+    .stat .sub {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .progress {
+        height: 8px;
+        background: var(--grid);
+        border-radius: var(--bar-radius);
+        overflow: hidden;
+        margin-top: 8px;
+    }
+
+        .progress > i {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(255,255,255,0.35), currentColor);
+            border-radius: var(--bar-radius);
+            transition: width 0.35s ease;
+        }
+
+    .chart-wrap {
+        height: 220px;
+        position: relative;
+    }
+
+    canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .table-scroll {
+        max-height: 460px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        background: var(--surface);
+    }
+
+    #procTable {
+        margin: 0;
+    }
+
+        #procTable thead th {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.6), var(--surface));
+            z-index: 2;
+            font-weight: 600;
+            color: var(--text);
+            border-bottom: 1px solid var(--border) !important;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        #procTable tbody td {
+            vertical-align: middle !important;
+            font-size: 13px;
+            border-color: var(--border) !important;
+            color: var(--text);
+        }
+
+        #procTable tbody tr:hover {
+            background: var(--hover-row);
+        }
+
+        #procTable thead th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #procTable thead th .sort-arrow {
+            font-size: 11px;
+            margin-left: 6px;
+            color: var(--text-muted);
+        }
+
+        #procTable thead th.sorted-asc .sort-arrow::after {
+            content: "▲";
+        }
+
+        #procTable thead th.sorted-desc .sort-arrow::after {
+            content: "▼";
+        }
+
+    .bar-cell {
+        position: relative;
+        background-image: linear-gradient(90deg, var(--bar-color), transparent);
+        background-repeat: no-repeat;
+        background-size: var(--bar-pct, 0%) 100%;
+        border-radius: 8px;
+    }
+
+        .bar-cell .num {
+            position: relative;
+            z-index: 1;
+            display: inline-block;
+            padding: 2px 4px;
+            border-radius: 6px;
+            font-family: var(--num-font);
+        }
+
+        .bar-cell.cpu {
+            --bar-color: rgba(255,59,48,0.35);
+        }
+
+        .bar-cell.mem {
+            --bar-color: rgba(175,82,222,0.35);
+        }
+
+        .bar-cell.io {
+            --bar-color: rgba(10,132,255,0.35);
+        }
+
+    .badge-pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        font-variant-numeric: tabular-nums;
+        font-family: var(--num-font);
+    }
+
+    .pid {
+        color: var(--text-muted);
+        font-family: var(--num-font);
+    }
+
+    #procEmpty {
+        color: var(--text-muted);
+    }
+
+    .mb-8 {
+        margin-bottom: 8px;
+    }
+
+    .mt-6 {
+        margin-top: 6px;
+    }
+
+    .mt-10 {
+        margin-top: 10px;
+    }
+
+    .mt-14 {
+        margin-top: 14px;
+    }
+
+    /* New: process heading container for filters in Top Processes card */
+    .proc-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .proc-heading-left {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .proc-heading-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .segmented {
+        display: inline-flex;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+        .segmented button {
+            appearance: none;
+            background: transparent;
+            border: 0;
+            padding: 5px 10px;
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+            .segmented button + button {
+                border-left: 1px solid var(--border);
+            }
+
+            .segmented button.active {
+                background: var(--surface);
+                color: var(--accent);
+                font-weight: 600;
+            }
+
+    .search {
+        position: relative;
+        min-width: 200px;
+    }
+
+        .search input {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 7px 26px 7px 30px;
+            color: var(--text);
+            outline: none;
+            box-shadow: var(--shadow);
+            font-size: 12px;
+        }
+
+            .search input::placeholder {
+                color: var(--text-muted);
+            }
+
+        .search svg {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0.7;
+            width: 14px;
+            height: 14px;
+        }
+
+    .log-panel {
+        border-radius: var(--card-radius);
+        background: linear-gradient(to bottom, rgba(8,8,11,0.96), rgba(3,3,5,0.98));
+        color: var(--log-fg);
+        box-shadow: 0 14px 30px rgba(0,0,0,0.45);
+        border: 1px solid var(--log-border);
+        display: flex;
+        flex-direction: column;
+        MIN-HEIGHT: 74%;
+    }
+
+    .log-header {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--log-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .log-title-group {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .log-title {
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+    }
+
+    .log-subtitle {
+        font-size: 11px;
+        color: var(--log-muted);
+    }
+
+    .log-tabs {
+        display: inline-flex;
+        background: rgba(255,255,255,0.03);
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid var(--log-border);
+    }
+
+        .log-tabs button {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            color: var(--log-muted);
+            padding: 5px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.18s ease, color 0.18s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+            .log-tabs button span.badge {
+                padding: 1px 6px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.10);
+                font-family: var(--num-font);
+            }
+
+            .log-tabs button.active {
+                background: rgba(255,255,255,0.14);
+                color: #fff;
+            }
+
+    .log-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .log-tool-button {
+        border-radius: 999px;
+        border: 1px solid var(--log-border);
+        background: rgba(255,255,255,0.02);
+        color: var(--log-muted);
+        font-size: 11px;
+        padding: 4px 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    }
+
+        .log-tool-button.active {
+            background: rgba(52,199,89,0.28);
+            color: #f5fff6;
+            border-color: rgba(52,199,89,0.6);
+        }
+
+        .log-tool-button.disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+    .log-search {
+        position: relative;
+    }
+
+        .log-search input {
+            background: rgba(255,255,255,0.06);
+            border-radius: 999px;
+            border: 1px solid var(--log-border);
+            padding: 4px 10px 4px 24px;
+            color: var(--log-fg);
+            font-size: 11px;
+            outline: none;
+            width: 160px;
+        }
+
+            .log-search input::placeholder {
+                color: var(--log-muted);
+            }
+
+        .log-search svg {
+            position: absolute;
+            left: 7px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            opacity: 0.7;
+            color: var(--log-muted);
+        }
+
+    .log-body {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 10px 10px 10px;
+    }
+
+    .log-file-info {
+        font-size: 11px;
+        color: var(--log-muted);
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .log-counter {
+        font-family: var(--num-font);
+    }
+
+    .log-content-wrap {
+        position: relative;
+        border-radius: 10px;
+        border: 1px solid var(--log-border);
+        background: radial-gradient(circle at top left, rgba(255,255,255,0.03), rgba(0,0,0,0.93));
+        overflow: hidden;
+        flex: 1;
+        max-height: 1291PX;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .log-lines {
+        flex: 1;
+        overflow: auto;
+        padding: 6px 8px 8px 8px;
+        font-family: var(--num-font);
+        font-size: 11px;
+        line-height: 1.45;
+        color: var(--log-fg);
+        background: transparent;
+        white-space: pre-wrap;
+        word-break: break-word;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .log-line {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        padding: 1px 2px;
+    }
+
+        .log-line.selected {
+            background: rgba(255,255,255,0.08);
+        }
+
+    .log-ts {
+        color: var(--log-muted);
+        min-width: 140px;
+    }
+
+    .log-level {
+        min-width: 46px;
+        text-align: center;
+        border-radius: 999px;
+        padding: 0 6px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    .lvl-DBG {
+        background: rgba(74,144,226,0.18);
+        color: #8ac6ff;
+    }
+
+    .lvl-INF {
+        background: rgba(52,199,89,0.18);
+        color: #9ff2b6;
+    }
+
+    .lvl-WRN {
+        background: rgba(255,204,0,0.16);
+        color: #ffe07a;
+    }
+
+    .lvl-ERR {
+        background: rgba(255,59,48,0.20);
+        color: #ff9ea4;
+    }
+
+    .lvl-FAT {
+        background: rgba(175,82,222,0.22);
+        color: #e2b5ff;
+    }
+
+    .lvl-AUD {
+        background: rgba(0,122,255,0.24);
+        color: #c2dcff;
+    }
+
+    .log-msg {
+        flex: 1;
+    }
+
+    .log-no-data {
+        color: var(--log-muted);
+        font-size: 11px;
+        padding: 8px 10px;
+    }
+
+    .log-footer {
+        padding: 6px 8px;
+        border-top: 1px solid var(--log-border);
+        font-size: 11px;
+        color: var(--log-muted);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .log-badge-pill {
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        font-size: 11px;
+        font-family: var(--num-font);
+    }
+
+    .log-file-picker {
+        position: relative;
+        display: inline-block;
+    }
+
+    .log-file-trigger {
+        border-radius: 999px;
+        border: 1px solid var(--log-border);
+        background: rgba(255,255,255,0.03);
+        color: var(--log-fg);
+        padding: 2px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .log-file-trigger-label {
+        max-width: 220px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .log-file-menu {
+        position: absolute;
+        right: 0;
+        top: 110%;
+        min-width: 260px;
+        max-height: 360px;
+        overflow: hidden;
+        border-radius: 10px;
+        border: 1px solid var(--log-border);
+        background: #050608;
+        color: var(--log-fg);
+        box-shadow: 0 12px 26px rgba(0,0,0,0.6);
+        z-index: 50;
+        display: none;
+    }
+
+    #logFileMenuBody {
+        max-height: 300px;
+        overflow: auto;
+    }
+
+    .log-file-menu.open {
+        display: block;
+    }
+
+    .log-file-group {
+        padding: 6px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .log-file-group-title {
+        font-size: 11px;
+        color: var(--log-muted);
+        margin-bottom: 2px;
+    }
+
+    .log-file-item {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+        .log-file-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+    .log-file-search {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+        .log-file-search input {
+            width: 100%;
+            font-size: 11px;
+            padding: 4px 6px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.05);
+            color: var(--log-fg);
+            outline: none;
+        }
+
+            .log-file-search input::placeholder {
+                color: var(--log-muted);
+            }
+</style>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div id="loadingText">Loading server metrics…</div>
+    <div class="overlay-note" id="loadingNote">
+        The dashboard will appear as soon as totals are available. Processes may load shortly after.
+    </div>
+</div>
+
+<div class="container" style="margin-top:20px;">
+    <h2><span class="title-dot"></span> @ViewBag.Title</h2>
+    <p class="muted">Live CPU, Memory, Disk, Network, top processes and real-time application &amp; audit logs.</p>
+    <hr />
+
+
+
+
+
+
+
+    <div id="matrix-layout">
+        <div>
+            <!-- toolbar now only has Live toggle -->
+            <div class="toolbar">
+                <div class="toggle">
+                    Live
+                    <div id="liveSwitch" class="switch on" title="Pause/resume live updates"></div>
+                </div>
+            </div>
+
+
+
+            @* NEW: Top Clients panel *@
+            <div class="panel" style="margin-bottom:14px;">
+                <div class="panel-heading">
+                    <strong>Top Clients (IP)</strong>
+                    <span class="muted" style="font-size:12px; margin-left:8px;">
+                        TUS uploads, zips, copy/paste/delete (most to least resource usage)
+                    </span>
+                </div>
+                <div class="panel-body" style="padding:0;">
+                    <div class="table-scroll" style="max-height:250px; border:none; box-shadow:none;">
+                        <table class="table table-striped table-condensed" id="clientActivityTable" style="margin:0;">
+                            <thead>
+                                <tr>
+                                    <th style="width:28%;">IP Address</th>
+                                    <th class="text-right" style="width:12%;">TUS Sessions</th>
+                                    <th class="text-right" style="width:16%;">Finalized (MB)</th>
+                                    <th class="text-right" style="width:12%;">Zip Requests</th>
+                                    <th class="text-right" style="width:12%;">File Ops</th>
+                                    <th class="text-right" style="width:20%;">Last Active</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientActivityBody">
+                                <tr>
+                                    <td colspan="6" class="text-muted text-center" style="padding:10px;">
+                                        Waiting for client activity…
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+            <div class="row" id="totals-cards">
+                <div class="col-sm-3">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>CPU</strong></div>
+                        <div class="panel-body">
+                            <div class="stat">
+                                <div class="icon cpu">⚙️</div>
+                                <div class="value"><span id="statCpu">0</span>%</div>
+                            </div>
+                            <div class="progress"><i id="barCpu" style="color: var(--cpu); width: 0%;"></i></div>
+                            <div class="sub mt-6">Utilization</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>Memory</strong></div>
+                        <div class="panel-body">
+                            <div class="stat">
+                                <div class="icon mem">💾</div>
+                                <div class="value"><span id="statMem">0</span>%</div>
+                            </div>
+                            <div class="progress"><i id="barMem" style="color: var(--mem); width: 0%;"></i></div>
+                            <div class="sub mt-6">Working set</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>Disk Busy</strong></div>
+                        <div class="panel-body">
+                            <div class="stat">
+                                <div class="icon disk">💽</div>
+                                <div class="value"><span id="statDisk">0</span>%</div>
+                            </div>
+                            <div class="progress"><i id="barDisk" style="color: var(--disk); width: 0%;"></i></div>
+                            <div class="sub mt-6">Device time</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>Network</strong></div>
+                        <div class="panel-body">
+                            <div class="stat">
+                                <div class="icon net">🌐</div>
+                                <div class="value"><span id="statNet">0</span> Mb/s</div>
+                            </div>
+                            <div class="progress"><i id="barNet" style="color: var(--net); width: 0%;"></i></div>
+                            <div class="sub mt-6">Throughput</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>CPU (%)</strong></div>
+                        <div class="panel-body">
+                            <div class="chart-wrap"><canvas id="cpuChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>Memory (%)</strong></div>
+                        <div class="panel-body">
+                            <div class="chart-wrap"><canvas id="memChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>Disk Busy (%)</strong></div>
+                        <div class="panel-body">
+                            <div class="chart-wrap"><canvas id="diskChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="panel">
+                        <div class="panel-heading"><strong>Network (Mb/s)</strong></div>
+                        <div class="panel-body">
+                            <div class="chart-wrap"><canvas id="netChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Processes with filters/search INSIDE the panel heading -->
+            <div class="panel">
+                <div class="panel-heading proc-heading">
+                    <div class="proc-heading-left">
+                        <strong>Top Processes</strong>
+                        <span class="muted">by CPU (click headers to sort)</span>
+                    </div>
+                    <div class="proc-heading-right">
+                        <div class="segmented" id="quickSort">
+                            <button data-sort="CpuPercent" class="active">CPU</button>
+                            <button data-sort="MemoryMB">Memory</button>
+                            <button data-sort="IoTotalBps">I/O</button>
+                            <button data-sort="Name">Name</button>
+                        </div>
+                        <div class="search">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M21 21l-4.35-4.35m1.85-5.65a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z"
+                                      stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                            </svg>
+                            <input id="procSearch" type="search" placeholder="Search processes (name or PID)">
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="table-scroll">
+                        <table class="table table-striped table-condensed" id="procTable">
+                            <thead>
+                                <tr>
+                                    <th class="sortable text-left" data-key="Pid" style="width:90px;">PID <span class="sort-arrow"></span></th>
+                                    <th class="sortable text-left" data-key="Name">Name <span class="sort-arrow"></span></th>
+                                    <th class="sortable text-right" data-key="CpuPercent" style="width:160px;">CPU % <span class="sort-arrow"></span></th>
+                                    <th class="sortable text-right" data-key="MemoryMB" style="width:180px;">Memory (MB) <span class="sort-arrow"></span></th>
+                                    <th class="sortable text-right" data-key="IoReadBps" style="width:180px;">I/O Read (KB/s) <span class="sort-arrow"></span></th>
+                                    <th class="sortable text-right" data-key="IoWriteBps" style="width:180px;">I/O Write (KB/s) <span class="sort-arrow"></span></th>
+                                    <th class="sortable text-right" data-key="IoTotalBps" style="width:180px;">I/O Total (KB/s) <span class="sort-arrow"></span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="procBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="procEmpty" class="muted mt-10">Processes are loading…</div>
+                    <p class="muted" style="margin-top:8px;">
+                        I/O shows per-process device transfer rates. Detailed split (network vs disk) requires ETW tracing.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+                <div>
+                    <div class="log-panel">
+                        <div class="log-header">
+                            <div class="log-title-group">
+                                <div class="log-title">Real-time Logs</div>
+                                <div class="log-subtitle">Application &amp; audit logs from App_Data/Logs</div>
+                            </div>
+                            <div class="log-tools">
+                                <div class="log-tabs" id="logTabs">
+                                    <button type="button" data-log="upload" class="active">
+                                        App Log <span class="badge" id="logCount-upload">0</span>
+                                    </button>
+                                    <button type="button" data-log="audit">
+                                        Audit Log <span class="badge" id="logCount-audit">0</span>
+                                    </button>
+                                </div>
+
+                                <button type="button" class="log-tool-button active" id="logLiveToggle" title="Pause/resume live log tail">
+                                    <span class="indicator">●</span> Live
+                                </button>
+
+                                <div class="log-search">
+                                    <svg viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35m1.85-5.65a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none" /></svg>
+                                    <input id="logFilter" type="search" placeholder="Filter (level, text)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="log-body">
+                            <div class="log-file-info">
+                                <div class="log-file-path">
+                                    <span>Current file:</span>
+                                    <div class="log-file-picker" id="logFilePicker">
+                                        <button type="button" class="log-file-trigger" id="logFileTrigger">
+                                            <span class="log-file-trigger-label" id="logFileTriggerLabel">n/a</span>
+                                            <span>▾</span>
+                                        </button>
+                                        <div class="log-file-menu" id="logFileMenu">
+                                            <div class="log-file-search">
+                                                <input id="logFileSearchInput" type="search" placeholder="Search files...">
+                                            </div>
+                                            <div id="logFileMenuBody"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="log-counter">
+                                    Showing <span id="logVisibleCount">0</span> / <span id="logTotalCount">0</span> lines
+                                </div>
+                            </div>
+
+                            <div class="log-content-wrap">
+                                <div class="log-lines" id="logLines">
+                                    <div class="log-no-data" id="logNoData">Waiting for log data…</div>
+                                </div>
+                                <div class="log-footer">
+                                    <span>Newest lines appear at the top. Live mode only for the latest file.</span>
+                                    <span class="log-badge-pill" id="logMetaSummary">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+@section scripts {
+    @Scripts.Render("~/bundles/realtime")
+    <script src="/signalr/hubs"></script>
+
+    <script type="text/javascript">
+        (function () {
+            // ---------- Metrics ----------
+            var overlay = document.getElementById('loadingOverlay');
+            var loadingText = document.getElementById('loadingText');
+            var loadingNote = document.getElementById('loadingNote');
+            var hasRealTotals = false;
+            var elLogFileMenuBody = document.getElementById('logFileMenuBody');
+            var elLogFileSearchInput = document.getElementById('logFileSearchInput');
+            var logFileSearchTerm = '';
+
+            function isRealTotals(sample) {
+                if (!sample) return false;
+                return ((sample.MemoryPercent || 0) > 0.1) ||
+                       ((sample.CpuPercent || 0) > 0.1) ||
+                       ((sample.DiskPercent || 0) > 0.1) ||
+                       ((sample.NetMbps || 0) > 0.001);
+            }
+
+            function hideOverlayIfReady() {
+                if (hasRealTotals && overlay) overlay.style.display = 'none';
+            }
+
+            setTimeout(function () {
+                if (overlay && overlay.style.display !== 'none') {
+                    loadingText.textContent = 'Warming up performance counters…';
+                    loadingNote.textContent = 'If this takes long, ensure the IIS App Pool identity is in the “Performance Monitor Users” group.';
+                }
+            }, 6000);
+
+            var maxPoints = 60;
+            function gridColor() { return getComputedStyle(document.documentElement).getPropertyValue('--grid').trim() || 'rgba(0,0,0,0.06)'; }
+            function textMuted() { return getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#888'; }
+
+            function makeLineConfig(label, color, yMax, ySuffix) {
+                return {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: label, data: [], tension: 0.25, borderWidth: 2, borderColor: color, backgroundColor: color + '33', pointRadius: 0, fill: true }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        interaction: { mode: 'nearest', intersect: false },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                ticks: { maxTicksLimit: 6, color: textMuted() },
+                                grid: { color: gridColor() }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                suggestedMax: yMax,
+                                ticks: {
+                                    color: textMuted(),
+                                    callback: function (v) { return (Math.round(v)) + (ySuffix || ''); }
+                                },
+                                grid: { color: gridColor() }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { mode: 'nearest', intersect: false }
+                        }
+                    }
+                };
+            }
+
+            var cpuChart = new Chart(document.getElementById('cpuChart').getContext('2d'), makeLineConfig('CPU %', '#ff3b30', 100, '%'));
+            var memChart = new Chart(document.getElementById('memChart').getContext('2d'), makeLineConfig('Mem %', '#af52de', 100, '%'));
+            var diskChart = new Chart(document.getElementById('diskChart').getContext('2d'), makeLineConfig('Disk %', '#0a84ff', 100, '%'));
+            var netChart = new Chart(document.getElementById('netChart').getContext('2d'), makeLineConfig('Net Mb/s', '#34c759', 100, ''));
+
+            function labelFor(tsUtc) {
+                try { return new Date(tsUtc).toLocaleTimeString([], { hour12: false }); }
+                catch { return ''; }
+            }
+
+            function addPoint(chart, label, value) {
+                var lbls = chart.data.labels, data = chart.data.datasets[0].data;
+                lbls.push(label);
+                data.push(value || 0);
+                if (lbls.length > maxPoints) { lbls.shift(); data.shift(); }
+                chart.update('none');
+            }
+
+            function setProgress(elId, pct) {
+                var el = document.getElementById(elId);
+                if (el) el.style.width = Math.max(0, Math.min(100, pct || 0)).toFixed(0) + '%';
+            }
+
+            function updateStatCards(s) {
+                if (!s) return;
+                var cpu = +((s.CpuPercent || 0).toFixed(0));
+                var mem = +((s.MemoryPercent || 0).toFixed(0));
+                var disk = +((s.DiskPercent || 0).toFixed(0));
+                var net = +((s.NetMbps || 0).toFixed(1));
+
+                document.getElementById('statCpu').innerText = cpu;
+                document.getElementById('statMem').innerText = mem;
+                document.getElementById('statDisk').innerText = disk;
+                document.getElementById('statNet').innerText = net;
+
+                setProgress('barCpu', cpu);
+                setProgress('barMem', mem);
+                setProgress('barDisk', disk);
+                setProgress('barNet', Math.max(0, Math.min(100, net)));
+            }
+
+            function addTotals(sample) {
+                var lbl = labelFor(sample.Timestamp);
+                addPoint(cpuChart, lbl, sample.CpuPercent);
+                addPoint(memChart, lbl, sample.MemoryPercent);
+                addPoint(diskChart, lbl, sample.DiskPercent);
+                addPoint(netChart, lbl, sample.NetMbps);
+            }
+
+            var lastProcs = [];
+            var sortKey = 'CpuPercent';
+            var sortDir = 'desc';
+            var filterTerm = '';
+            var isPaused = false;
+
+            // Replace existing formatKBps, computeMax, renderSorted with this:
+
+            function safeNumber(v) {
+                v = Number(v);
+                return isNaN(v) ? 0 : v;
+            }
+
+            function formatKBps(bps) {
+                var v = safeNumber(bps);
+                return (v / 1024).toFixed(1);
+            }
+
+            // Keep computing max from the FULL lastProcs list, so bars are stable even when filtered.
+            function computeMax(sourceArr, key) {
+                var m = 0;
+                for (var i = 0; i < sourceArr.length; i++) {
+                    m = Math.max(m, safeNumber(sourceArr[i][key]));
+                }
+                return m || 1; // avoid divide-by-zero
+            }
+
+            function renderSorted() {
+                var tbody = document.getElementById('procBody');
+                if (!tbody) return;
+
+                var needle = (filterTerm || '').toLowerCase().trim();
+                // work on a copy so we don't mutate lastProcs
+                var arr = lastProcs.slice();
+
+                // filter by search
+                if (needle) {
+                    arr = arr.filter(function (p) {
+                        var name = ((p.Name || '') + '').toLowerCase();
+                        var pid = String(p.Pid || '');
+                        return name.indexOf(needle) >= 0 || pid.indexOf(needle) >= 0;
+                    });
+                }
+
+                // sort
+                arr.sort(function (a, b) {
+                    var va = a[sortKey], vb = b[sortKey];
+
+                    if (sortKey === 'Name') {
+                        va = ((va || '') + '').toLowerCase();
+                        vb = ((vb || '') + '').toLowerCase();
+                        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+                        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+                        var t = (safeNumber(a.CpuPercent) - safeNumber(b.CpuPercent));
+                        return sortDir === 'asc' ? t : -t;
+                    } else {
+                        va = safeNumber(va);
+                        vb = safeNumber(vb);
+                        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+                        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+                        var na = ((a.Name || '') + '').toLowerCase();
+                        var nb = ((b.Name || '') + '').toLowerCase();
+                        if (na < nb) return -1;
+                        if (na > nb) return 1;
+                        return 0;
+                    }
+                });
+
+                // compute max values based on full set, not filtered, for stable bar scaling
+                var maxMem = computeMax(lastProcs, 'MemoryMB');
+                var maxIo = computeMax(lastProcs, 'IoTotalBps');
+
+                var html = '';
+                for (var i = 0; i < arr.length; i++) {
+                    var p = arr[i];
+
+                    var cpuRaw = safeNumber(p.CpuPercent);
+                    var memRaw = safeNumber(p.MemoryMB);
+                    var ioRaw = safeNumber(p.IoTotalBps);
+
+                    var cpuPct = Math.max(0, Math.min(100, cpuRaw));
+                    var memPct = Math.max(0, Math.min(100, (memRaw / maxMem) * 100));
+                    var ioPct = Math.max(0, Math.min(100, (ioRaw / maxIo) * 100));
+
+                    html += '<tr>' +
+                        '<td><span class="pid">#' + (p.Pid || 0) + '</span></td>' +
+                        '<td>' + (p.Name || '') + '</td>' +
+                        '<td class="text-right bar-cell cpu" style="--bar-pct:' + cpuPct.toFixed(0) + '%;"><span class="num">' + cpuPct.toFixed(1) + '</span></td>' +
+                        '<td class="text-right bar-cell mem" style="--bar-pct:' + memPct.toFixed(0) + '%;"><span class="num">' + memRaw.toFixed(1) + '</span></td>' +
+                        '<td class="text-right"><span class="badge-pill">' + formatKBps(p.IoReadBps) + '</span></td>' +
+                        '<td class="text-right"><span class="badge-pill">' + formatKBps(p.IoWriteBps) + '</span></td>' +
+                        '<td class="text-right bar-cell io" style="--bar-pct:' + ioPct.toFixed(0) + '%;"><span class="num">' + formatKBps(p.IoTotalBps) + '</span></td>' +
+                        '</tr>';
+                }
+
+                tbody.innerHTML = html;
+                document.getElementById('procEmpty').style.display = arr.length ? 'none' : '';
+            }
+
+            function renderProcesses(procs) { lastProcs = Array.isArray(procs) ? procs : []; renderSorted(); }
+
+            function updateSortIndicators() {
+                var ths = document.querySelectorAll('#procTable thead th.sortable');
+                ths.forEach(function (th) {
+                    th.classList.remove('sorted-asc', 'sorted-desc');
+                    var key = th.getAttribute('data-key');
+                    if (key === sortKey) th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                });
+                var btns = document.querySelectorAll('#quickSort button');
+                btns.forEach(function (b) {
+                    b.classList.toggle('active', b.getAttribute('data-sort') === sortKey);
+                });
+            }
+
+            function bindHeaderSorting() {
+                var ths = document.querySelectorAll('#procTable thead th.sortable');
+                ths.forEach(function (th) {
+                    th.addEventListener('click', function () {
+                        var key = th.getAttribute('data-key');
+                        if (sortKey === key) sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+                        else { sortKey = key; sortDir = (key === 'Name') ? 'asc' : 'desc'; }
+                        updateSortIndicators();
+                        renderSorted();
+                    });
+                });
+                updateSortIndicators();
+            }
+
+            bindHeaderSorting();
+
+            document.getElementById('quickSort').addEventListener('click', function (e) {
+                if (e.target && e.target.matches('button[data-sort]')) {
+                    var key = e.target.getAttribute('data-sort');
+                    if (sortKey === key) sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+                    else { sortKey = key; sortDir = (key === 'Name') ? 'asc' : 'desc'; }
+                    updateSortIndicators();
+                    renderSorted();
+                }
+            });
+
+            var searchInput = document.getElementById('procSearch');
+            searchInput.addEventListener('input', function () {
+                filterTerm = searchInput.value || '';
+                renderSorted();
+            });
+
+            var liveSwitch = document.getElementById('liveSwitch');
+            liveSwitch.addEventListener('click', function () {
+                isPaused = !isPaused;
+                liveSwitch.classList.toggle('on', !isPaused);
+            });
+
+            var metricsHub = $.connection.serverMetricsHub;
+
+            metricsHub.client.bootstrap = function (history, procs) {
+                var any = false, last = null;
+                (history || []).forEach(function (s) {
+                    if (!isPaused) {
+                        updateStatCards(s);
+                        addTotals(s);
+                    }
+                    last = s; any = true;
+                });
+                if (any && isRealTotals(last)) { hasRealTotals = true; hideOverlayIfReady(); }
+                if (!isPaused) renderProcesses(procs);
+            };
+
+            metricsHub.client.updateTotals = function (sample) {
+                if (!isPaused) {
+                    updateStatCards(sample);
+                    addTotals(sample);
+                }
+                if (isRealTotals(sample)) { hasRealTotals = true; hideOverlayIfReady(); }
+            };
+
+            metricsHub.client.updateProcesses = function (procs) {
+                if (!isPaused) renderProcesses(procs);
+            };
+
+            function pollTotalsOnce() {
+                $.getJSON('@Url.Content("~/ServerMatrix/History")?points=1', function (resp) {
+                    if (resp && resp.data && resp.data.length) {
+                        var s = resp.data[0];
+                        if (!isPaused) {
+                            updateStatCards(s);
+                            addTotals(s);
+                        }
+                        if (isRealTotals(s)) { hasRealTotals = true; hideOverlayIfReady(); }
+                    }
+                });
+            }
+
+            setTimeout(function () {
+                if (!hasRealTotals) pollTotalsOnce();
+            }, 1500);
+
+            $.connection.hub.start().done(function () {
+                setTimeout(function () {
+                    if (!hasRealTotals) pollTotalsOnce();
+                }, 1500);
+            }).fail(function () {
+                pollTotalsOnce();
+            });
+
+            // ---------- Log viewer ----------
+            var logHub = $.connection.logHub;
+            var activeLog = 'upload';
+            var logLive = true;
+            var logFilter = '';
+            var logData = { upload: [], audit: [] };
+            var logFiles = { upload: [], audit: [] };
+            var latestFileName = { upload: null, audit: null }; // name string
+            var selectedFileName = { upload: null, audit: null };
+            var logPollTimer = null;
+
+            var elLogLines = document.getElementById('logLines');
+            var elLogNoData = document.getElementById('logNoData');
+            var elLogFilter = document.getElementById('logFilter');
+            var elLogVisibleCount = document.getElementById('logVisibleCount');
+            var elLogTotalCount = document.getElementById('logTotalCount');
+            var elLogMetaSummary = document.getElementById('logMetaSummary');
+            var elLogLiveToggle = document.getElementById('logLiveToggle');
+            var elLogTabs = document.getElementById('logTabs');
+            var elLogFileTrigger = document.getElementById('logFileTrigger');
+            var elLogFileTriggerLabel = document.getElementById('logFileTriggerLabel');
+            var elLogFileMenu = document.getElementById('logFileMenu');
+
+            function setLiveButtonState(enabled, on) {
+                if (!elLogLiveToggle) return;
+                if (!enabled) {
+                    elLogLiveToggle.classList.add('disabled');
+                    logLive = false;
+                    elLogLiveToggle.classList.remove('active');
+                    elLogLiveToggle.querySelector('.indicator').textContent = '◌';
+                } else {
+                    elLogLiveToggle.classList.remove('disabled');
+                    logLive = !!on;
+                    elLogLiveToggle.classList.toggle('active', logLive);
+                    elLogLiveToggle.querySelector('.indicator').textContent = logLive ? '●' : '◌';
+                }
+            }
+
+            function parseLogLine(line, isAuditLog) {
+                if (!line) return { raw: '', timestamp: '', level: '', message: '' };
+                var ts = '', lvl = '', msg = line;
+
+                if (isAuditLog) {
+                    var idxAudit = line.indexOf('[AUDIT]');
+                    if (idxAudit >= 0) {
+                        ts = line.substring(0, idxAudit).trim();
+                        lvl = 'AUD';
+                        msg = line.substring(idxAudit + '[AUDIT]'.length).trim();
+                    } else {
+                        ts = line.substring(0, 23).trim();
+                        msg = line.substring(23).trim();
+                        lvl = '';
+                    }
+                } else {
+                    var idxLb = line.indexOf('[');
+                    var idxRb = line.indexOf(']');
+                    if (idxLb > 0 && idxRb > idxLb) {
+                        ts = line.substring(0, idxLb).trim();
+                        var levelToken = line.substring(idxLb + 1, idxRb).trim();
+                        lvl = (levelToken || '').substr(0, 3).toUpperCase();
+                        msg = line.substring(idxRb + 1).trim();
+                    } else {
+                        ts = line.substring(0, 23).trim();
+                        msg = line.substring(23).trim();
+                        lvl = '';
+                    }
+                }
+
+                return {
+                    raw: line,
+                    timestamp: ts,
+                    level: lvl,
+                    message: msg
+                };
+            }
+
+
+
+            // After existing declarations:
+            var elClientBody = document.getElementById('clientActivityBody');
+
+            function renderClientActivity(clients) {
+                if (!elClientBody) return;
+
+                // Filter out entries that have no active work
+                clients = (clients || []).filter(function (c) {
+                    return (c.TusSessionStarts > 0) ||
+                        (c.ZipRequests > 0) ||
+                        (c.FileOperations > 0) ||
+                        (c.BytesFinalized > 0);
+                });
+
+                if (!clients.length) {
+                    elClientBody.innerHTML =
+                        '<tr><td colspan="6" class="text-muted text-center" style="padding:10px;">' +
+                        'No active clients in the last 30 minutes.' +
+                        '</td></tr>';
+                    return;
+                }
+
+                var html = '';
+                var now = new Date();
+
+                for (var i = 0; i < clients.length; i++) {
+                    var c = clients[i];
+
+                    var mb = 0;
+                    try { mb = (c.BytesFinalized / 1024.0 / 1024.0); } catch (e) { mb = 0; }
+                    var mbStr = mb.toFixed(1);
+
+                    var last = '';
+                    try {
+                        var lastDate = new Date(c.LastActive);
+                        var diffSec = (now - lastDate) / 1000;
+                        if (diffSec < 5) last = 'Just now';
+                        else if (diffSec < 60) last = diffSec.toFixed(0) + 's ago';
+                        else last = lastDate.toLocaleTimeString();
+                    } catch (e) {
+                        last = 'n/a';
+                    }
+
+                    html += '<tr>' +
+                        '<td style="font-family:var(--num-font);">' + (c.IpAddress || '(unknown)') + '</td>' +
+                        '<td class="text-right">' +
+                        (c.TusSessionStarts > 0
+                            ? '<span class="badge-pill">' + c.TusSessionStarts + '</span>'
+                            : '-') +
+                        '</td>' +
+                        '<td class="text-right" style="font-family:var(--num-font);">' + mbStr + '</td>' +
+                        '<td class="text-right">' +
+                        (c.ZipRequests > 0
+                            ? '<span class="badge-pill" style="background:rgba(255,59,48,0.15);color:#d63025;">' + c.ZipRequests + '</span>'
+                            : '0') +
+                        '</td>' +
+                        '<td class="text-right">' + (c.FileOperations > 0 ? c.FileOperations : '0') + '</td>' +
+                        '<td class="text-right text-muted" style="font-size:12px;">' + last + '</td>' +
+                        '</tr>';
+                }
+
+                elClientBody.innerHTML = html;
+            }
+
+            // hook into existing serverMetricsHub
+            var metricsHub = $.connection.serverMetricsHub;
+
+            // existing metricsHub.client.bootstrap / updateTotals / updateProcesses are in your file above
+
+            metricsHub.client.updateClientActivity = function (clients) {
+                // reuse existing isPaused flag from metrics section
+                if (typeof isPaused !== 'undefined' && isPaused) return;
+                renderClientActivity(clients);
+            };
+
+
+
+            function renderLog() {
+                var lines = logData[activeLog] || [];
+                var isAudit = activeLog === 'audit';
+                var filter = (logFilter || '').toLowerCase().trim();
+                var visible = [];
+                var counts = { total: lines.length, visible: 0, info: 0, warn: 0, err: 0, dbg: 0 };
+
+                for (var i = 0; i < lines.length; i++) {
+                    var parsed = parseLogLine(lines[i], isAudit);
+                    var hay = (parsed.timestamp + ' ' + parsed.level + ' ' + parsed.message).toLowerCase();
+                    if (filter && hay.indexOf(filter) < 0) continue;
+                    visible.push(parsed);
+                    counts.visible++;
+
+                    switch (parsed.level) {
+                        case 'INF': counts.info++; break;
+                        case 'WRN': counts.warn++; break;
+                        case 'ERR': counts.err++; break;
+                        case 'DBG': counts.dbg++; break;
+                        case 'AUD': counts.info++; break;
+                    }
+                }
+
+                elLogTotalCount.textContent = counts.total;
+                elLogVisibleCount.textContent = counts.visible;
+
+                if (!visible.length) {
+                    elLogLines.innerHTML = '';
+                    var no = document.createElement('div');
+                    no.className = 'log-no-data';
+                    no.textContent = lines.length === 0
+                        ? 'No log lines loaded yet. Waiting for new events…'
+                        : 'No log lines match the current filter.';
+                    elLogLines.appendChild(no);
+                    return;
+                }
+
+                var frag = document.createDocumentFragment();
+                for (var j = 0; j < visible.length; j++) {
+                    var p = visible[j];
+                    var div = document.createElement('div');
+                    div.className = 'log-line';
+
+                    var spanTs = document.createElement('span');
+                    spanTs.className = 'log-ts';
+                    spanTs.textContent = p.timestamp || '';
+
+                    var spanLvl = document.createElement('span');
+                    var lvlClass = '';
+                    switch (p.level) {
+                        case 'DBG': lvlClass = 'lvl-DBG'; break;
+                        case 'INF': lvlClass = 'lvl-INF'; break;
+                        case 'WRN': lvlClass = 'lvl-WRN'; break;
+                        case 'ERR': lvlClass = 'lvl-ERR'; break;
+                        case 'FAT': lvlClass = 'lvl-FAT'; break;
+                        case 'AUD': lvlClass = 'lvl-AUD'; break;
+                    }
+                    spanLvl.className = 'log-level ' + lvlClass;
+                    spanLvl.textContent = p.level || (isAudit ? 'AUD' : '');
+
+                    var spanMsg = document.createElement('span');
+                    spanMsg.className = 'log-msg';
+                    spanMsg.textContent = p.message || '';
+
+                    div.appendChild(spanTs);
+                    div.appendChild(spanLvl);
+                    div.appendChild(spanMsg);
+                    frag.appendChild(div);
+                }
+
+                elLogLines.innerHTML = '';
+                elLogLines.appendChild(frag);
+
+                if (logLive) {
+                    try { elLogLines.scrollTop = 0; } catch (e) { }
+                }
+
+                var meta = [];
+                if (counts.err > 0) meta.push('Errors: ' + counts.err);
+                if (counts.warn > 0) meta.push('Warnings: ' + counts.warn);
+                if (counts.info > 0) meta.push('Info: ' + counts.info);
+                if (counts.dbg > 0) meta.push('Debug: ' + counts.dbg);
+                elLogMetaSummary.textContent = meta.length ? meta.join(' · ') : 'No errors in visible lines';
+            }
+
+            function requestSnapshot(logName) {
+                // 0 => full buffer
+                logHub.server.requestSnapshot(logName, 0);
+            }
+
+            function requestFileSnapshot(logName, fileName) {
+                if (!fileName) return;
+                // 0 => full file
+                logHub.server.getFileSnapshot(logName, fileName, 0);
+            }
+
+            function startLogPolling() {
+                if (logPollTimer) clearInterval(logPollTimer);
+                logPollTimer = setInterval(function () {
+                    if (!logLive) return;
+                    var sel = selectedFileName[activeLog];
+                    if (sel && sel === latestFileName[activeLog]) {
+                        // 0 => full buffer, now respected by hub
+                        logHub.server.pollLog(activeLog, 0);
+                    }
+                }, 1000);
+            }
+
+            function rebuildFileMenu() {
+                if (!elLogFileMenuBody) return;
+                elLogFileMenuBody.innerHTML = '';
+
+                var files = logFiles[activeLog] || [];
+                if (!files.length) {
+                    var empty = document.createElement('div');
+                    empty.className = 'log-no-data';
+                    empty.textContent = 'No log files found.';
+                    elLogFileMenuBody.appendChild(empty);
+                    return;
+                }
+
+                var term = (logFileSearchTerm || '').toLowerCase().trim();
+                if (term) {
+                    files = files.filter(function (f) {
+                        return (f.name || '').toLowerCase().indexOf(term) >= 0;
+                    });
+                }
+
+                if (!files.length) {
+                    var none = document.createElement('div');
+                    none.className = 'log-no-data';
+                    none.textContent = 'No files match the search.';
+                    elLogFileMenuBody.appendChild(none);
+                    return;
+                }
+
+                var grouped = {};
+                files.forEach(function (f) {
+                    var n = f.name || '';
+                    var m = n.match(/(\d{8})(?=\D*\.txt$)/);
+                    var key;
+                    if (m) {
+                        var y = m[0].substring(0, 4);
+                        var mo = m[0].substring(4, 6);
+                        key = y + '-' + mo;
+                    } else {
+                        key = 'Unknown';
+                    }
+                    if (!grouped[key]) grouped[key] = [];
+                    grouped[key].push(f);
+                });
+
+                var keys = Object.keys(grouped).sort().reverse();
+
+                keys.forEach(function (k) {
+                    var grp = document.createElement('div');
+                    grp.className = 'log-file-group';
+
+                    var title = document.createElement('div');
+                    title.className = 'log-file-group-title';
+                    title.textContent = k;
+                    grp.appendChild(title);
+
+                    grouped[k].forEach(function (f) {
+                        var item = document.createElement('div');
+                        item.className = 'log-file-item';
+                        item.dataset.filename = f.name;
+
+                        var left = document.createElement('span');
+                        left.textContent = f.name;
+
+                        var right = document.createElement('span');
+                        right.style.opacity = '0.7';
+                        right.textContent = '';
+
+                        item.appendChild(left);
+                        item.appendChild(right);
+
+                        item.addEventListener('click', function () {
+                            selectedFileName[activeLog] = f.name;
+                            closeFileMenu();
+                            updateFileTriggerLabel();
+
+                            if (f.name === latestFileName[activeLog]) {
+                                setLiveButtonState(true, true);
+                                requestSnapshot(activeLog);
+                            } else {
+                                setLiveButtonState(false, false);
+                                requestFileSnapshot(activeLog, f.name);
+                            }
+                        });
+
+                        grp.appendChild(item);
+                    });
+
+                    elLogFileMenuBody.appendChild(grp);
+                });
+            }
+
+            if (elLogFileSearchInput) {
+                elLogFileSearchInput.addEventListener('input', function () {
+                    logFileSearchTerm = elLogFileSearchInput.value || '';
+                    rebuildFileMenu();
+                });
+            }
+
+            function updateFileTriggerLabel() {
+                if (!elLogFileTriggerLabel) return;
+                var files = logFiles[activeLog] || [];
+                var selected = selectedFileName[activeLog];
+                if (!files.length) {
+                    elLogFileTriggerLabel.textContent = 'n/a';
+                    return;
+                }
+                if (!selected) {
+                    selected = latestFileName[activeLog] || files[0].name;
+                    selectedFileName[activeLog] = selected;
+                }
+                elLogFileTriggerLabel.textContent = selected;
+            }
+
+            function openFileMenu() {
+                if (elLogFileMenu) elLogFileMenu.classList.add('open');
+            }
+
+            function closeFileMenu() {
+                if (elLogFileMenu) elLogFileMenu.classList.remove('open');
+            }
+
+            logHub.client.initialize = function (logs) {
+                (logs || []).forEach(function (entry) {
+                    if (!entry || !entry.Name) return;
+                    var name = entry.Name.toLowerCase();
+                    var files = Array.isArray(entry.Files) ? entry.Files : [];
+                    logFiles[name] = files.map(function (f) {
+                        return {
+                            name: f.Name,
+                            fullPath: f.FullPath,
+                            lastWriteUtc: f.LastWriteUtc
+                        };
+                    });
+
+                    if (logFiles[name].length) {
+                        latestFileName[name] = logFiles[name][0].name;
+                        if (!selectedFileName[name]) {
+                            selectedFileName[name] = latestFileName[name];
+                        }
+                    }
+                });
+
+                rebuildFileMenu();
+                updateFileTriggerLabel();
+                setLiveButtonState(true, true);
+            };
+
+            logHub.client.snapshot = function (logName, lines) {
+                logName = (logName || '').toLowerCase();
+                if (!logData[logName]) logData[logName] = [];
+                logData[logName] = Array.isArray(lines) ? lines : [];
+                var cnt = document.getElementById('logCount-' + logName);
+                if (cnt) cnt.textContent = logData[logName].length;
+                if (logName === activeLog) {
+                    renderLog();
+                }
+            };
+
+            logHub.client.update = function (logName, lines) {
+                logName = (logName || '').toLowerCase();
+                if (!Array.isArray(lines)) return;
+
+                var sel = selectedFileName[logName];
+                if (sel && sel !== latestFileName[logName]) {
+                    return;
+                }
+
+                logData[logName] = lines;
+                var cnt = document.getElementById('logCount-' + logName);
+                if (cnt) cnt.textContent = lines.length;
+                if (logName === activeLog && logLive) {
+                    renderLog();
+                }
+            };
+
+            logHub.client.fileSnapshot = function (logName, fileName, lines) {
+                logName = (logName || '').toLowerCase();
+                if (!Array.isArray(lines)) lines = [];
+                if (!logData[logName]) logData[logName] = [];
+                logData[logName] = lines;
+                var cnt = document.getElementById('logCount-' + logName);
+                if (cnt) cnt.textContent = lines.length;
+                if (logName === activeLog && selectedFileName[logName] === fileName) {
+                    renderLog();
+                }
+            };
+
+            elLogFilter.addEventListener('input', function () {
+                logFilter = elLogFilter.value || '';
+                renderLog();
+            });
+
+            elLogLiveToggle.addEventListener('click', function () {
+                if (elLogLiveToggle.classList.contains('disabled')) return;
+                logLive = !logLive;
+                elLogLiveToggle.classList.toggle('active', logLive);
+                elLogLiveToggle.querySelector('.indicator').textContent = logLive ? '●' : '◌';
+            });
+
+            elLogTabs.addEventListener('click', function (e) {
+                if (!e.target || !e.target.closest('button[data-log]')) return;
+                var btn = e.target.closest('button[data-log]');
+                var logName = btn.getAttribute('data-log');
+                if (!logName || logName === activeLog) return;
+
+                activeLog = logName.toLowerCase();
+
+                var buttons = elLogTabs.querySelectorAll('button[data-log]');
+                buttons.forEach(function (b) {
+                    b.classList.toggle('active', b.getAttribute('data-log') === activeLog);
+                });
+
+                rebuildFileMenu();
+                updateFileTriggerLabel();
+
+                var sel = selectedFileName[activeLog];
+                if (sel && sel === latestFileName[activeLog]) {
+                    setLiveButtonState(true, true);
+                    requestSnapshot(activeLog);
+                } else if (sel) {
+                    setLiveButtonState(false, false);
+                    requestFileSnapshot(activeLog, sel);
+                } else {
+                    if (latestFileName[activeLog]) {
+                        selectedFileName[activeLog] = latestFileName[activeLog];
+                        updateFileTriggerLabel();
+                        setLiveButtonState(true, true);
+                        requestSnapshot(activeLog);
+                    }
+                }
+            });
+
+            if (elLogFileTrigger) {
+                elLogFileTrigger.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    if (elLogFileMenu.classList.contains('open')) closeFileMenu();
+                    else openFileMenu();
+                });
+            }
+
+            if (elLogFileMenu) {
+                elLogFileMenu.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                });
+            }
+
+            document.addEventListener('click', function () {
+                closeFileMenu();
+            });
+
+            $.connection.hub.start().done(function () {
+                requestSnapshot('upload');
+                requestSnapshot('audit');
+                startLogPolling();
+            });
+        })();
+    </script>
+}

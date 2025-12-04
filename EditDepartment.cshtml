@@ -1,0 +1,205 @@
+﻿@model BOBDrive.ViewModels.Admin.DepartmentCreateViewModel
+
+@{
+    ViewBag.Title = "Edit Department";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Edit Department</h2>
+
+@using (Html.BeginForm("EditDepartment", "AdminDashboard", FormMethod.Post, new { id = "editDeptForm" }))
+{
+    @Html.AntiForgeryToken()
+    @Html.HiddenFor(m => m.Id)
+
+    <div class="form-horizontal">
+        <div class="form-group">
+            @Html.LabelFor(m => m.Name, new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.TextBoxFor(m => m.Name, new { @class = "form-control", required = "required" })
+                @Html.ValidationMessageFor(m => m.Name, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.LabelFor(m => m.ParentDepartmentId, "Parent Department", new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.DropDownListFor(
+                    m => m.ParentDepartmentId,
+                    Model.ParentDepartments,
+                    "(Top-level department)",
+                    new { @class = "form-control" })
+                <span class="help-block">
+                    Choose a parent to make this a sub‑department. Leave blank for a root‑level department.
+                </span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.LabelFor(m => m.DataMonitorExternalUserId, "Data Monitor AD User ID", new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.TextBoxFor(
+                    m => m.DataMonitorExternalUserId,
+                    new
+                    {
+                        @class = "form-control",
+                        placeholder = "e.g. emp12345",
+                        id = "DataMonitorExternalUserId"
+                    })
+                <span id="dataMonitorValidation" class="text-danger" style="display:none;"></span>
+                @Html.ValidationMessageFor(m => m.DataMonitorExternalUserId, "", new { @class = "text-danger" })
+                <span class="help-block">
+                    Optional. This AD user will act as Data Monitor for this department. The user must sign in to BOBDrive at least once (so their account exists).
+                    A user can be Data Monitor for only one department.
+                </span>
+            </div>
+        </div>
+
+        <hr />
+
+        <h4>Policies</h4>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <div class="checkbox">
+                    <label>
+                        @Html.CheckBoxFor(m => m.IsVisibilityAllowed) Visibility allowed
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        @Html.CheckBoxFor(m => m.IsDownloadingAllowed) Downloading allowed
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        @Html.CheckBoxFor(m => m.IsZippingAllowed) Zipping allowed
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        @Html.CheckBoxFor(m => m.IsSharingAllowed) Internal sharing allowed
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        @Html.CheckBoxFor(m => m.IsExternalSharingAllowed) External sharing allowed
+                    </label>
+                </div>
+                <div class="checkbox">
+                    <label>
+                        @Html.CheckBoxFor(m => m.IsCopyFromOtherDriveAllowed) Copy from other drives allowed
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <hr />
+
+        <h4>Allowed File Extensions</h4>
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                @if (Model.AvailableExtensions != null)
+                {
+                    @Html.ListBoxFor(
+                        m => m.SelectedExtensionIds,
+                        Model.AvailableExtensions,
+                        new { @class = "form-control", size = "8" })
+                    <span class="help-block">
+                        Hold Ctrl (or Cmd on Mac) to select multiple extensions.
+                    </span>
+                }
+                else
+                {
+                    <p>No extensions configured.</p>
+                }
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Save" class="btn btn-primary" id="saveBtn" />
+                <a href="@Url.Action("Departments", "AdminDashboard")" class="btn btn-default">Back to list</a>
+            </div>
+        </div>
+    </div>
+}
+
+@section scripts {
+    <script type="text/javascript">
+        (function () {
+            $(function () {
+                var $saveBtn = $('#saveBtn');
+                var $dm = $('#DataMonitorExternalUserId');
+                var $validation = $('#dataMonitorValidation');
+                var departmentId = @Model.Id;
+
+                function setValidation(msg) {
+                    if (!msg) {
+                        $validation.hide().text('');
+                        $saveBtn.prop('disabled', false);
+                    } else {
+                        $validation.show().text(msg);
+                        $saveBtn.prop('disabled', true);
+                    }
+                }
+
+                // debounced AJAX check
+                var timer = null;
+                $dm.on('input', function () {
+                    setValidation(null); // clear during typing
+                    clearTimeout(timer);
+                    var val = $(this).val().trim();
+                    if (!val) {
+                        // Optional field; empty means remove monitor
+                        setValidation(null);
+                        return;
+                    }
+                    timer = setTimeout(function () {
+                        // First, check registration
+                        $.get('@Url.Action("IsUserRegistered", "AdminDashboard")', { externalUserId: val })
+                            .done(function (regResp) {
+                                if (!(regResp && regResp.exists)) {
+                                    setValidation("That AD user is not registered in BOBDrive. The user must sign in at least once before assignment.");
+                                    return;
+                                }
+
+                                // Then, check uniqueness (monitor only one department)
+                                $.get('@Url.Action("IsUserDataMonitorElsewhere", "AdminDashboard")', {
+                                    externalUserId: val,
+                                    departmentId: departmentId
+                                }).done(function (uniqResp) {
+                                    if (uniqResp && uniqResp.isMonitorElsewhere) {
+                                        setValidation("User '" + val + "' is already assigned as Data Monitor to another department: "
+                                            + (uniqResp.departmentPath || uniqResp.departmentName || "Unknown")
+                                            + ". A user can only be Data Monitor for one department.");
+                                    } else {
+                                        setValidation(null);
+                                    }
+                                }).fail(function () {
+                                    setValidation("Unable to validate monitor uniqueness right now. Try again later.");
+                                });
+                            })
+                            .fail(function () {
+                                setValidation("Unable to validate user right now. Try again later.");
+                            });
+                    }, 450);
+                });
+
+                // Prevent accidental blank child-name submissions globally (forms with add-child-form class)
+                $(document).on('submit', '.add-child-form', function (e) {
+                    var $input = $(this).find('input[name="childName"]');
+                    if ($input.length) {
+                        if (!$input.val() || !$input.val().trim()) {
+                            e.preventDefault();
+                            alert('Child name is required.');
+                            $input.focus();
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+            });
+        })();
+    </script>
+}

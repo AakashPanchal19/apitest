@@ -1,0 +1,119 @@
+@model BOBDrive.Models.Department
+@using System.Linq
+@using System.Collections.Generic
+@using BOBDrive.Models
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Department Tree - " + (Model != null ? Model.Name : "Department");
+
+    var lookup = ViewBag.Lookup as IDictionary<int, List<Department>> ?? new Dictionary<int, List<Department>>();
+    var partialViewData = new ViewDataDictionary(ViewData);
+    partialViewData["Lookup"] = lookup;
+}
+
+<h2>Department: @Html.Encode(Model != null ? Model.Name : "")</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<p>
+    <a href="@Url.Action("Departments", "AdminDashboard")" class="btn btn-default">Back to Top-level List</a>
+</p>
+
+<div id="dept-tree">
+    <ul class="hierarchy-list">
+        @Html.Partial("_DepartmentNode", Model, partialViewData)
+    </ul>
+</div>
+
+<style>
+    .hierarchy-list {
+        list-style: none;
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .hierarchy-node {
+        margin: 8px 0;
+        padding: 10px;
+        border: 1px solid #eaeef4;
+        border-radius: 6px;
+        background: #fff;
+    }
+
+        .hierarchy-node.root-node {
+            border-left: 4px solid #06a6c9;
+        }
+
+        .hierarchy-node.child-node {
+            border-left: 4px solid #36b24a;
+        }
+
+        .hierarchy-node .hierarchy-node-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+    .children-container {
+        margin-top: 10px;
+        padding-left: 12px;
+        border-left: 1px dashed #e1e6ec;
+    }
+
+    .btn-xs {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+
+    .input-sm {
+        height: 28px;
+        padding: 4px 6px;
+        font-size: 12px;
+    }
+
+    @@media (max-width: 600px) {
+        .hierarchy-node .hierarchy-node-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+            .hierarchy-node .hierarchy-node-header > div[style*="white-space:nowrap"] {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+        .children-container {
+            padding-left: 10px;
+        }
+    }
+</style>
+
+@section scripts {
+    <script type="text/javascript">
+        (function () {
+            // Prevent accidental blank child-name submissions (for all .add-child-form forms)
+            $(document).on('submit', '.add-child-form', function (e) {
+                var $input = $(this).find('input[name="childName"]');
+                if ($input.length) {
+                    if (!$input.val() || !$input.val().trim()) {
+                        e.preventDefault();
+                        alert('Child name is required.');
+                        $input.focus();
+                        return false;
+                    }
+                }
+                return true;
+            });
+        })();
+    </script>
+}

@@ -1,0 +1,82 @@
+﻿<!-- File: Views/AdminDashboard/EditUser.cshtml (NEW FILE) -->
+@model BOBDrive.ViewModels.Admin.EditUserViewModel
+@{
+    ViewBag.Title = "Edit User";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2><i class="glyphicon glyphicon-edit"></i> Edit User</h2>
+<hr />
+
+<div class="row">
+    <div class="col-md-8">
+        @using (Html.BeginForm("EditUser", "AdminDashboard", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+
+            @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">User Information</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.ExternalUserId, new { @class = "col-md-4 control-label" })
+                        <div class="col-md-8">
+                            @Html.TextBoxFor(m => m.ExternalUserId, new { @class = "form-control", @readonly = "readonly" })
+                            <span class="help-block">This field cannot be changed</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.FullName, new { @class = "col-md-4 control-label" })
+                        <div class="col-md-8">
+                            @Html.TextBoxFor(m => m.FullName, new { @class = "form-control" })
+                            @Html.ValidationMessageFor(m => m.FullName, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.Role, new { @class = "col-md-4 control-label" })
+                        <div class="col-md-8">
+                            @Html.DropDownListFor(m => m.Role,
+                                new SelectList(BOBDrive.Models.UserRoles.GetAllRoles(), Model.Role),
+                                new { @class = "form-control" })
+                            @Html.ValidationMessageFor(m => m.Role, "", new { @class = "text-danger" })
+                            <span class="help-block">
+                                <strong>User:</strong> Standard access to personal files<br />
+                                <strong>Admin:</strong> Full system access including user management
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        @Html.LabelFor(m => m.ExternalRoleId, new { @class = "col-md-4 control-label" })
+                        <div class="col-md-8">
+                            @Html.TextBoxFor(m => m.ExternalRoleId, new { @class = "form-control", type = "number" })
+                            @Html.ValidationMessageFor(m => m.ExternalRoleId, "", new { @class = "text-danger" })
+                            <span class="help-block">Optional: External system role ID</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="col-md-offset-4 col-md-8">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="glyphicon glyphicon-floppy-disk"></i> Save Changes
+                    </button>
+                    <a href="@Url.Action("Users", "AdminDashboard")" class="btn btn-default">
+                        <i class="glyphicon glyphicon-remove"></i> Cancel
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+}

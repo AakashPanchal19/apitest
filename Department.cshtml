@@ -1,0 +1,260 @@
+﻿@model BOBDrive.ViewModels.MonitorDepartmentViewModel
+@{
+    ViewBag.Title = "Monitor Department - " + Model.DepartmentName;
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Department: @Model.DepartmentName</h2>
+
+@if (TempData["MonitorMessage"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["MonitorMessage"]
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>Pending Users</h3>
+
+        @if (!Model.PendingUsers.Any())
+        {
+            <p class="text-muted">There are no pending users for this department.</p>
+        }
+        else
+        {
+            <table class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>External User Id</th>
+                        <th>Full Name</th>
+                        <th>Requested On</th>
+                        <th style="width: 180px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.PendingUsers)
+                    {
+                        <tr>
+                            <td>@user.ExternalUserId</td>
+                            <td>@user.FullName</td>
+                            <td>@user.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @using (Html.BeginForm("ApproveUser", "MonitorDashboard", FormMethod.Post, new { @class = "inline-form", style = "display:inline-block;" }))
+                                {
+                                    @Html.AntiForgeryToken()
+                                    @Html.Hidden("userId", user.UserId)
+                                    @Html.Hidden("departmentId", Model.DepartmentId)
+                                    <button type="submit" class="btn btn-xs btn-success">
+                                        Approve
+                                    </button>
+                                }
+
+                                @using (Html.BeginForm("RejectUser", "MonitorDashboard", FormMethod.Post, new { @class = "inline-form", style = "display:inline-block; margin-left:4px;" }))
+                                {
+                                    @Html.AntiForgeryToken()
+                                    @Html.Hidden("userId", user.UserId)
+                                    @Html.Hidden("departmentId", Model.DepartmentId)
+                                    <button type="submit" class="btn btn-xs btn-danger">
+                                        Reject
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="col-md-6">
+        <h3>Department Policies</h3>
+
+        @using (Html.BeginForm("UpdatePolicies", "MonitorDashboard", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.Hidden("DepartmentId", Model.DepartmentId)
+
+            <div class="checkbox">
+                <label>
+                    @Html.CheckBox("IsVisibilityAllowed", Model.IsVisibilityAllowed)
+                    Allow visibility
+                </label>
+            </div>
+            <div class="checkbox">
+                <label>
+                    @Html.CheckBox("IsDownloadingAllowed", Model.IsDownloadingAllowed)
+                    Allow downloading
+                </label>
+            </div>
+            <div class="checkbox">
+                <label>
+                    @Html.CheckBox("IsZippingAllowed", Model.IsZippingAllowed)
+                    Allow zipping
+                </label>
+            </div>
+            <div class="checkbox">
+                <label>
+                    @Html.CheckBox("IsSharingAllowed", Model.IsSharingAllowed)
+                    Allow internal sharing
+                </label>
+            </div>
+            <div class="checkbox">
+                <label>
+                    @Html.CheckBox("IsExternalSharingAllowed", Model.IsExternalSharingAllowed)
+                    Allow external sharing
+                </label>
+            </div>
+            <div class="checkbox">
+                <label>
+                    @Html.CheckBox("IsCopyFromOtherDriveAllowed", Model.IsCopyFromOtherDriveAllowed)
+                    Allow copy from other drive
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                Save Policies
+            </button>
+        }
+
+        <hr />
+
+        <h3>Allowed Extensions</h3>
+
+        @using (Html.BeginForm("UpdateExtensions", "MonitorDashboard", FormMethod.Post))
+        {
+            @Html.AntiForgeryToken()
+            @Html.Hidden("DepartmentId", Model.DepartmentId)
+
+            var enabledExtensions = Model.Extensions.Where(e => e.IsGloballyEnabled).ToList();
+
+            if (!enabledExtensions.Any())
+            {
+                <p class="text-muted">There are no globally enabled file extensions configured.</p>
+            }
+            else
+            {
+                <p class="text-muted">
+                    Only globally enabled extensions can be allowed for this department.
+                    Use multi-select below to add or remove allowed extensions.
+                </p>
+
+                <div class="form-group">
+                    <label for="AllowedExtensionIds">Allowed extensions</label>
+                    <select id="AllowedExtensionIds"
+                            name="AllowedExtensionIds"
+                            class="form-control js-monitor-extensions-select"
+                            multiple="multiple">
+                        @foreach (var ext in enabledExtensions)
+                        {
+                            var selectedAttr = ext.IsAllowedForDepartment ? "selected=\"selected\"" : "";
+                            <option value="@ext.ExtensionId" @Html.Raw(selectedAttr)>
+                                @ext.Extension
+                            </option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <button type="submit" class="btn btn-primary">
+                Save Extensions
+            </button>
+        }
+    </div>
+</div>
+
+<hr />
+
+<h3>Active Users in this Department</h3>
+
+@if (Model.ActiveUsers == null || !Model.ActiveUsers.Any())
+{
+    <p class="text-muted">There are no approved active users for this department.</p>
+}
+else
+{
+    <form id="removeUserForm"
+          method="post"
+          action="@Url.Action("RemoveUserFromDepartment", "MonitorDashboard")">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="departmentId" value="@Model.DepartmentId" />
+        <input type="hidden" name="userId" value="" />
+
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>External User Id</th>
+                    <th>Full Name</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Last Login</th>
+                    <th style="width: 120px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Model.ActiveUsers)
+                {
+                    <tr>
+                        <td>@user.ExternalUserId</td>
+                        <td>@user.FullName</td>
+                        <td>@user.Role</td>
+                        <td>@user.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@(user.LastLoginAt.HasValue ? user.LastLoginAt.Value.ToString("yyyy-MM-dd HH:mm") : "-")</td>
+                        <td>
+                            <button type="button"
+                                    class="btn btn-xs btn-danger js-remove-user"
+                                    data-user-id="@user.UserId"
+                                    data-user-name="@user.FullName (@user.ExternalUserId)">
+                                Remove
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </form>
+}
+
+
+
+@section scripts {
+    <!-- Optional: initialize TomSelect / Select2 if you use it.
+         Example for TomSelect (adjust paths and options to your project):
+
+         <script src="~/Scripts/tom-select.min.js"></script>
+         <link href="~/Content/tom-select.css" rel="stylesheet" />
+         <script>
+             new TomSelect('.js-monitor-extensions-select', {
+                 plugins: ['remove_button'],
+                 create: false,
+                 persist: false
+             });
+         </script>
+    -->
+
+    <script type="text/javascript">
+        $(function () {
+
+            // Show global loading when submitting approve/reject/remove forms
+            $('form.inline-form, #removeUserForm').on('submit', function () {
+                if (window.GlobalLoading) GlobalLoading.show('Saving changes...');
+            });
+
+            $('.js-remove-user').on('click', function () {
+                var userId = $(this).data('user-id');
+                var userName = $(this).data('user-name');
+
+                if (!confirm(
+                    "Are you sure you want to remove " + userName + " from this department?\n\n" +
+                    "They will be signed out and must request access again."
+                )) {
+                    return;
+                }
+
+                var $form = $('#removeUserForm');
+                $form.find('input[name="userId"]').val(userId);
+                $form.submit();
+            });
+        });
+    </script>
+}

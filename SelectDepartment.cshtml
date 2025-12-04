@@ -1,0 +1,699 @@
+﻿@using System.Web.Script.Serialization
+@using System.Collections.Generic
+@using System.Linq
+@using BOBDrive.Models
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewBag.Title = "Select Department";
+
+    // --- C# Data Logic ---
+    string rejectionMessage = ViewBag.RejectionMessage as string;
+
+    var departmentList = new List<Department>();
+    var sel = ViewBag.Departments as System.Web.Mvc.SelectList;
+
+    if (sel != null && sel.Items is IEnumerable<Department>)
+    {
+        departmentList.AddRange(sel.Items as IEnumerable<Department>);
+    }
+    else if (ViewBag.Departments is IEnumerable<Department>)
+    {
+        departmentList.AddRange(ViewBag.Departments as IEnumerable<Department>);
+    }
+
+    var treeNodes = departmentList.Select(d => new
+    {
+        id = d.Id,
+        name = d.Name,
+        parentId = d.ParentDepartmentId
+    }).ToList();
+
+    var serializer = new JavaScriptSerializer();
+    var jsonPayload = serializer.Serialize(treeNodes);
+}
+
+<!-- INTERNAL STYLES -->
+<style>
+    /* --- Variables --- */
+    :root {
+        --brand: #2c3e50;
+        --accent: #3498db;
+        --bg: #f4f7f6;
+        --border: #dfe6e9;
+        --white: #ffffff;
+        --text: #2d3436;
+        --info-bg: #e1f5fe;
+        --info-text: #0277bd;
+    }
+
+    /* --- Base Layout --- */
+    body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+    }
+
+    h2 {
+        color: var(--brand);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+
+    .org-wrapper {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        margin-top: 20px;
+    }
+
+    /* --- Panels --- */
+    .panel {
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+        display: flex;
+        flex-direction: column;
+        /* Removed overflow:hidden here to prevent search dropdown cutting */
+    }
+
+    /* --- Left Panel: Fixed Height & Scrollable --- */
+    .tree-pane {
+        flex: 1;
+        height: 600px;
+        min-width: 300px;
+        overflow: hidden; /* Keep rounding on this specific panel */
+    }
+
+    .action-pane {
+        flex: 0 0 340px;
+        padding: 25px;
+        height: auto;
+    }
+
+    /* --- Toolbar --- */
+    .toolbar {
+        padding: 12px 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+        .toolbar h4 {
+            margin: 0;
+            font-size: 15px;
+            color: var(--brand);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+        }
+
+    .btn-sm {
+        background: #fff;
+        border: 1px solid #b2bec3;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        color: var(--text);
+        transition: 0.2s;
+    }
+
+        .btn-sm:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: #fff;
+        }
+
+    /* --- Scrollable Tree Content --- */
+    .tree-scroll-area {
+        padding: 20px;
+        overflow-y: auto;
+        overflow-x: auto;
+        flex: 1;
+        background: #fff;
+    }
+
+    /* --- Tree Visuals --- */
+    ul.tree-ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+        ul.tree-ul ul {
+            margin-left: 24px;
+            padding-left: 0;
+            border-left: 1px solid #ccc;
+            position: relative;
+        }
+
+    li.tree-li {
+        margin: 0;
+        padding-left: 22px;
+        position: relative;
+        padding-top: 10px;
+    }
+
+        li.tree-li::before {
+            content: "";
+            position: absolute;
+            top: 28px;
+            left: 0;
+            width: 22px;
+            height: 1px;
+            background: #ccc;
+        }
+
+    ul.tree-ul ul > li.tree-li:last-child {
+        background: #fff;
+    }
+
+        ul.tree-ul ul > li.tree-li:last-child::after {
+            content: "";
+            position: absolute;
+            top: 29px;
+            left: -2px;
+            bottom: 0;
+            width: 4px;
+            background: #fff;
+        }
+
+    /* --- Node Card --- */
+    .node-card {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border: 1px solid #dcdcdc;
+        border-radius: 5px;
+        background: #fff;
+        cursor: pointer;
+        transition: 0.2s;
+        position: relative;
+        z-index: 2;
+        min-width: 160px;
+        border-left: 4px solid var(--accent);
+    }
+
+        .node-card:hover {
+            transform: translateX(3px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .node-card.active {
+            background: #eef7fc;
+            border-color: #aed6f1;
+            box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+        }
+
+            .node-card.active .node-text {
+                font-weight: 700;
+                color: var(--brand);
+            }
+
+    .svg-icon {
+        width: 16px;
+        height: 16px;
+        fill: currentColor;
+    }
+
+    .icon-box {
+        margin-right: 8px;
+        color: #95a5a6;
+        display: flex;
+        align-items: center;
+    }
+
+    .node-card.active .icon-box {
+        color: var(--accent);
+    }
+
+    .toggle-box {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 3px;
+        background: #f1f2f6;
+        margin-right: 8px;
+        cursor: pointer;
+        color: #636e72;
+    }
+
+        .toggle-box:hover {
+            background: #dfe4ea;
+            color: #000;
+        }
+
+        .toggle-box.hidden {
+            visibility: hidden;
+        }
+
+    /* --- Instruction Box --- */
+    .instruction-box {
+        background-color: var(--info-bg);
+        color: var(--info-text);
+        padding: 15px;
+        border-radius: 6px;
+        border: 1px solid #b3e5fc;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+
+        .instruction-box strong {
+            font-weight: 700;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+    /* --- Search & Form --- */
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #b2bec3;
+        border-radius: 5px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid #b2bec3;
+        border-top: none;
+        max-height: 300px; /* Increased height */
+        overflow-y: auto;
+        z-index: 9999; /* Ensure it stays on top */
+        display: none;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        border-radius: 0 0 5px 5px;
+    }
+
+    .search-item {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        line-height: 1.4;
+    }
+
+        .search-item:hover {
+            background: #f1f2f6;
+            color: var(--accent);
+        }
+
+        .search-item strong {
+            display: block;
+            font-size: 13px;
+            color: var(--brand);
+        }
+
+        .search-item span {
+            display: block;
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+    .selection-info {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+        margin-bottom: 20px;
+        border: 1px dashed #ccc;
+    }
+
+    .selection-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        color: #777;
+        letter-spacing: 1px;
+        font-weight: 700;
+    }
+
+    .selection-val {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--brand);
+        margin-top: 5px;
+    }
+
+    .btn-submit {
+        width: 100%;
+        background: var(--brand);
+        color: #fff;
+        border: none;
+        padding: 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+        .btn-submit:hover {
+            background: #1a252f;
+        }
+
+    /* Alert */
+    .alert {
+        padding: 12px;
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        font-size: 13px;
+    }
+
+    /* Mobile Responsive */
+    @@media(max-width:900px) {
+        .org-wrapper {
+            flex-direction: column-reverse;
+        }
+
+        .tree-pane, .action-pane {
+            width: 100%;
+            height: auto;
+        }
+
+        .tree-pane {
+            height: 500px;
+        }
+    }
+</style>
+
+<h2>@ViewBag.Title</h2>
+<p style="color:#7f8c8d; margin-bottom:10px;">Please identify your department to proceed.</p>
+
+@if (!string.IsNullOrWhiteSpace(rejectionMessage))
+{
+    <div class="alert"><strong>Notice:</strong> @Html.Encode(rejectionMessage)</div>
+}
+
+<div class="org-wrapper">
+
+    <!-- TREE PANEL (Left) -->
+    <div class="panel tree-pane">
+        <div class="toolbar">
+            <h4>
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" /><path d="M7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z" /></svg>
+                Organization Chart
+            </h4>
+            <div>
+                <button type="button" class="btn-sm" id="btnExpandAll">Expand All</button>
+                <button type="button" class="btn-sm" id="btnCollapseAll">Collapse All</button>
+            </div>
+        </div>
+
+        <!-- Scrollable Area -->
+        <div id="treeContainer" class="tree-scroll-area">
+            <div style="text-align:center; padding:40px; color:#aaa;">Loading Hierarchy...</div>
+        </div>
+    </div>
+
+    <!-- ACTION PANEL (Right) -->
+    <div class="panel action-pane">
+
+        <!-- INSTRUCTION TEXT BOX -->
+        <div class="instruction-box">
+            <strong>How to Select:</strong>
+            1. Scroll through the chart on the left.<br />
+            2. Click the <span style="font-family:monospace">[+]</span> buttons to open folders.<br />
+            3. <strong>Click the Department Name</strong> to select it.<br />
+            4. Once selected, click "Confirm Selection".
+        </div>
+
+        <div class="selection-info">
+            <div class="selection-label">You have selected</div>
+            <div id="txtSelection" class="selection-val">None</div>
+        </div>
+
+        <label style="font-size:12px; font-weight:600; display:block; margin-bottom:5px; color:#2d3436;">Or Search by Name:</label>
+        <div class="search-wrapper">
+            <input type="text" id="customSearchInput" class="search-input" placeholder="Type department name..." autocomplete="off" />
+            <div id="customSearchResults" class="search-results"></div>
+        </div>
+
+        <!-- MAIN DEPARTMENT SELECTION FORM -->
+        <form id="deptForm" method="post" action="@Url.Action("SelectDepartment", "Account")">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="hiddenDeptId" name="departmentId" value="" />
+
+            <button type="submit" class="btn-submit">Confirm Selection</button>
+
+            <div style="text-align:center; margin-top:10px;">
+                <!-- Cancel button that logs out via POST with anti-forgery -->
+                <button type="button"
+                        id="cancelSelectDeptBtn"
+                        style="color:#777; font-size:12px; text-decoration:none; background:none; border:none; padding:0; cursor:pointer;">
+                    Cancel
+                </button>
+            </div>
+        </form>
+
+        <!-- SEPARATE LOGOUT FORM (hidden) TO AVOID NESTING FORMS AND TO CARRY ANTI-FORGERY TOKEN -->
+        @using (Html.BeginForm("Logout", "Account", FormMethod.Post, new { id = "logoutForm", style = "display:none;" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.Hidden("isPicker", "false")
+        }
+    </div>
+</div>
+
+<!-- JAVASCRIPT LOGIC -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+        // --- Icons ---
+        var iconPlus = '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>';
+        var iconMinus = '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>';
+        var iconBuilding = '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>';
+        var iconFolder = '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>';
+
+        // --- Data Loading ---
+        var rawData = @Html.Raw(jsonPayload ?? "[]");
+        var map = {};
+        var roots = [];
+        var flatData = [];
+
+        // Pass 1: Build Object Map
+        for (var i = 0; i < rawData.length; i++) {
+            var d = rawData[i];
+            var obj = {
+                id: d.id,
+                name: d.name,
+                parentId: d.parentId,
+                children: [],
+                path: d.name // Will be updated later
+            };
+            map[d.id] = obj;
+            flatData.push(obj);
+        }
+
+        // Pass 2: Link Children
+        for (var i = 0; i < rawData.length; i++) {
+            var d = rawData[i];
+            var node = map[d.id];
+            if (d.parentId && map[d.parentId]) {
+                map[d.parentId].children.push(node);
+            } else {
+                roots.push(node);
+            }
+        }
+
+        // Pass 3: Recursive Path Builder (Full Hierarchy)
+        function buildFullPaths(node, prefix) {
+            node.path = prefix ? (prefix + " > " + node.name) : node.name;
+            for (var j = 0; j < node.children.length; j++) {
+                buildFullPaths(node.children[j], node.path);
+            }
+        }
+        for (var k = 0; k < roots.length; k++) {
+            buildFullPaths(roots[k], "");
+        }
+
+        // --- Build Tree UI ---
+        var treeContainer = document.getElementById('treeContainer');
+        treeContainer.innerHTML = '';
+
+        function createTree(nodes) {
+            if (nodes.length === 0) return null;
+            var ul = document.createElement('ul');
+            ul.className = 'tree-ul';
+
+            for (var i = 0; i < nodes.length; i++) {
+                var node = nodes[i];
+                var hasKids = node.children.length > 0;
+
+                var li = document.createElement('li');
+                li.className = 'tree-li';
+                li.setAttribute('data-id', node.id);
+
+                var card = document.createElement('div');
+                card.className = 'node-card';
+                card.onclick = (function (n) { return function () { selectNode(n.id, n.name); }; })(node);
+
+                var toggle = document.createElement('div');
+                toggle.className = 'toggle-box';
+
+                if (hasKids) {
+                    toggle.innerHTML = iconPlus;
+                    toggle.onclick = function (e) { e.stopPropagation(); toggleUL(this); };
+                } else {
+                    toggle.className += ' hidden';
+                }
+
+                var iconSpan = document.createElement('div');
+                iconSpan.className = 'icon-box';
+                iconSpan.innerHTML = hasKids ? iconFolder : iconBuilding;
+
+                var textSpan = document.createElement('span');
+                textSpan.className = 'node-text';
+                textSpan.innerText = node.name;
+
+                card.appendChild(toggle);
+                card.appendChild(iconSpan);
+                card.appendChild(textSpan);
+                li.appendChild(card);
+
+                if (hasKids) {
+                    var childUl = createTree(node.children);
+                    childUl.style.display = 'none';
+                    li.appendChild(childUl);
+                }
+                ul.appendChild(li);
+            }
+            return ul;
+        }
+
+        if (roots.length > 0) treeContainer.appendChild(createTree(roots));
+        else treeContainer.innerHTML = '<div style="padding:20px;color:red">No departments found.</div>';
+
+        // --- Interaction Logic ---
+        function toggleUL(btn) {
+            var ul = btn.parentElement.parentElement.querySelector('ul');
+            if (ul) {
+                var isHidden = ul.style.display === 'none';
+                ul.style.display = isHidden ? 'block' : 'none';
+                btn.innerHTML = isHidden ? iconMinus : iconPlus;
+            }
+        }
+
+        function selectNode(id, name) {
+            var cards = document.querySelectorAll('.node-card');
+            for (var i = 0; i < cards.length; i++) cards[i].classList.remove('active');
+
+            var li = document.querySelector('li[data-id="' + id + '"]');
+            if (li) li.querySelector('.node-card').classList.add('active');
+
+            document.getElementById('txtSelection').innerText = name;
+            document.getElementById('hiddenDeptId').value = id;
+            document.getElementById('customSearchResults').style.display = 'none';
+        }
+
+        function expandToNode(id) {
+            var li = document.querySelector('li[data-id="' + id + '"]');
+            if (!li) return;
+
+            var curr = li.parentElement;
+            while (curr && curr.id !== 'treeContainer') {
+                if (curr.tagName === 'UL') {
+                    curr.style.display = 'block';
+                    var parentLi = curr.parentElement;
+                    if (parentLi) {
+                        var t = parentLi.querySelector('.toggle-box');
+                        if (t) t.innerHTML = iconMinus;
+                    }
+                }
+                curr = curr.parentElement;
+            }
+
+            li.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            selectNode(id, map[id].name);
+        }
+
+        // --- Search Logic with Hierarchy ---
+        var searchInput = document.getElementById('customSearchInput');
+        var resultsDiv = document.getElementById('customSearchResults');
+
+        searchInput.addEventListener('input', function () {
+            var val = this.value.toLowerCase().trim();
+            resultsDiv.innerHTML = '';
+            if (!val) { resultsDiv.style.display = 'none'; return; }
+
+            var matches = flatData.filter(function (n) { return n.name.toLowerCase().indexOf(val) > -1; });
+
+            if (matches.length > 0) {
+                resultsDiv.style.display = 'block';
+                matches.forEach(function (m) {
+                    var div = document.createElement('div');
+                    div.className = 'search-item';
+                    // Display Name AND Full Path
+                    div.innerHTML = '<strong>' + m.name + '</strong><span>' + m.path + '</span>';
+                    div.onclick = function () { expandToNode(m.id); };
+                    resultsDiv.appendChild(div);
+                });
+            } else {
+                resultsDiv.style.display = 'block';
+                resultsDiv.innerHTML = '<div class="search-item" style="cursor:default">No matches</div>';
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+
+        // --- Global Buttons ---
+        document.getElementById('btnExpandAll').addEventListener('click', function () {
+            var uls = document.querySelectorAll('.tree-ul ul');
+            for (var i = 0; i < uls.length; i++) uls[i].style.display = 'block';
+            var ts = document.querySelectorAll('.toggle-box:not(.hidden)');
+            for (var j = 0; j < ts.length; j++) ts[j].innerHTML = iconMinus;
+        });
+
+        document.getElementById('btnCollapseAll').addEventListener('click', function () {
+            var uls = document.querySelectorAll('.tree-ul ul');
+            for (var i = 0; i < uls.length; i++) uls[i].style.display = 'none';
+            var ts = document.querySelectorAll('.toggle-box:not(.hidden)');
+            for (var j = 0; j < ts.length; j++) ts[j].innerHTML = iconPlus;
+        });
+
+        // --- Form Submit ---
+        document.getElementById('deptForm').addEventListener('submit', function (e) {
+            if (!document.getElementById('hiddenDeptId').value) {
+                e.preventDefault();
+                alert('Please click a department from the chart to select it.');
+            }
+        });
+
+        var preId = document.getElementById('hiddenDeptId').value;
+        if (preId) expandToNode(preId);
+
+        // --- Cancel Button: submit hidden logout form with anti-forgery token ---
+        var cancelBtn = document.getElementById('cancelSelectDeptBtn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function () {
+                var logoutForm = document.getElementById('logoutForm');
+                if (logoutForm) {
+                    logoutForm.submit();
+                }
+            });
+        }
+    });
+</script>

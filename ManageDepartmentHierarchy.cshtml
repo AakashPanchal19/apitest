@@ -1,0 +1,138 @@
+﻿@model BOBDrive.ViewModels.Admin.DepartmentBulkHierarchyViewModel
+
+@{
+    ViewBag.Title = "Manage Department Hierarchy";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Manage Department Hierarchy</h2>
+
+@if (!string.IsNullOrEmpty(ViewBag.ErrorMessage as string))
+{
+    <div class="alert alert-danger">@ViewBag.ErrorMessage</div>
+}
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+        {
+            <div>@error.ErrorMessage</div>
+        }
+    </div>
+}
+
+<p>
+    Enter one full department path per row. Example:
+    <code>Org A &gt; HR &gt; Payroll</code>
+    <br />
+    You can use the same names multiple times under different parents, e.g.
+    <code>Org A &gt; HR</code> and <code>Org B &gt; HR</code>.
+</p>
+
+@using (Html.BeginForm("ManageDepartmentHierarchy", "AdminDashboard", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+
+    <table class="table table-bordered" id="pathsTable">
+        <thead>
+            <tr>
+                <th style="width: 55%;">Department Path (Parent &gt; Child &gt; Sub-child)</th>
+                <th style="width: 35%;">Data Monitor AD User ID (for last node, optional)</th>
+                <th style="width: 10%;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < Model.Rows.Count; i++)
+            {
+                <tr>
+                    <td>
+                        @Html.TextBoxFor(m => m.Rows[i].Path,
+                            new
+                                 {
+                                @class = "form-control",
+                                placeholder = "e.g. Org A > HR > Payroll"
+                            })
+                    </td>
+                    <td>
+                        @Html.TextBoxFor(m => m.Rows[i].DataMonitorExternalUserId,
+                            new
+                                 {
+                                @class = "form-control",
+                                placeholder = "optional AD user id"
+                            })
+                    </td>
+                    <td>
+                        <button type="button"
+                                class="btn btn-danger btn-sm"
+                                onclick="removeRow(this)">
+                            Remove
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button type="button" class="btn btn-default" id="addRow">Add Row</button>
+    <button type="submit" class="btn btn-primary">Save Hierarchy</button>
+}
+
+@section scripts{
+    <script>
+    (function () {
+        var tableBody = document.querySelector('#pathsTable tbody');
+        var addBtn = document.getElementById('addRow');
+
+        function updateIndices() {
+            var rows = tableBody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var inputs = rows[i].querySelectorAll('input');
+                for (var j = 0; j < inputs.length; j++) {
+                    var name = inputs[j].getAttribute('name');
+                    if (!name) continue;
+                    name = name.replace(/Rows\[[0-9]+\]/, 'Rows[' + i + ']');
+                    inputs[j].setAttribute('name', name);
+
+                    var id = inputs[j].getAttribute('id');
+                    if (id) {
+                        id = id.replace(/_Rows_[0-9]+_/, '_Rows_' + i + '_');
+                        inputs[j].setAttribute('id', id);
+                    }
+                }
+            }
+        }
+
+        addBtn.addEventListener('click', function () {
+            var index = tableBody.querySelectorAll('tr').length;
+
+            var row = document.createElement('tr');
+            row.innerHTML =
+                '<td>' +
+                    '<input class="form-control" ' +
+                           'name="Rows[' + index + '].Path" ' +
+                           'placeholder="e.g. Org A > HR > Payroll" />' +
+                '</td>' +
+                '<td>' +
+                    '<input class="form-control" ' +
+                           'name="Rows[' + index + '].DataMonitorExternalUserId" ' +
+                           'placeholder="optional AD user id" />' +
+                '</td>' +
+                '<td>' +
+                    '<button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">Remove</button>' +
+                '</td>';
+
+            tableBody.appendChild(row);
+            updateIndices();
+        });
+
+        window.removeRow = function (btn) {
+            var row = btn.closest('tr');
+            if (row) {
+                tableBody.removeChild(row);
+                updateIndices();
+            }
+        };
+    })();
+    </script>
+}

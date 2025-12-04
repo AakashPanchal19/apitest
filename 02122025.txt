@@ -1,0 +1,820 @@
+USE [master]
+GO
+/****** Object:  Database [BobDriveDB]    Script Date: 12/2/2025 4:03:54 PM ******/
+CREATE DATABASE [BobDriveDB]
+ CONTAINMENT = NONE
+ ON  PRIMARY 
+( NAME = N'BobDriveDB', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\DATA\BobDriveDB.mdf' , SIZE = 8192KB , MAXSIZE = UNLIMITED, FILEGROWTH = 65536KB )
+ LOG ON 
+( NAME = N'BobDriveDB_log', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\DATA\BobDriveDB_log.ldf' , SIZE = 73728KB , MAXSIZE = 2048GB , FILEGROWTH = 65536KB )
+ WITH CATALOG_COLLATION = DATABASE_DEFAULT, LEDGER = OFF
+GO
+ALTER DATABASE [BobDriveDB] SET COMPATIBILITY_LEVEL = 160
+GO
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [BobDriveDB].[dbo].[sp_fulltext_database] @action = 'enable'
+end
+GO
+ALTER DATABASE [BobDriveDB] SET ANSI_NULL_DEFAULT OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET ANSI_NULLS OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET ANSI_PADDING OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET ANSI_WARNINGS OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET ARITHABORT OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET AUTO_CLOSE OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET AUTO_SHRINK OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET AUTO_UPDATE_STATISTICS ON 
+GO
+ALTER DATABASE [BobDriveDB] SET CURSOR_CLOSE_ON_COMMIT OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET CURSOR_DEFAULT  GLOBAL 
+GO
+ALTER DATABASE [BobDriveDB] SET CONCAT_NULL_YIELDS_NULL OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET NUMERIC_ROUNDABORT OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET QUOTED_IDENTIFIER OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET RECURSIVE_TRIGGERS OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET  DISABLE_BROKER 
+GO
+ALTER DATABASE [BobDriveDB] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET DATE_CORRELATION_OPTIMIZATION OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET TRUSTWORTHY OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET PARAMETERIZATION SIMPLE 
+GO
+ALTER DATABASE [BobDriveDB] SET READ_COMMITTED_SNAPSHOT OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET HONOR_BROKER_PRIORITY OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET RECOVERY FULL 
+GO
+ALTER DATABASE [BobDriveDB] SET  MULTI_USER 
+GO
+ALTER DATABASE [BobDriveDB] SET PAGE_VERIFY CHECKSUM  
+GO
+ALTER DATABASE [BobDriveDB] SET DB_CHAINING OFF 
+GO
+ALTER DATABASE [BobDriveDB] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+GO
+ALTER DATABASE [BobDriveDB] SET TARGET_RECOVERY_TIME = 60 SECONDS 
+GO
+ALTER DATABASE [BobDriveDB] SET DELAYED_DURABILITY = DISABLED 
+GO
+ALTER DATABASE [BobDriveDB] SET ACCELERATED_DATABASE_RECOVERY = OFF  
+GO
+EXEC sys.sp_db_vardecimal_storage_format N'BobDriveDB', N'ON'
+GO
+ALTER DATABASE [BobDriveDB] SET QUERY_STORE = OFF
+GO
+USE [BobDriveDB]
+GO
+/****** Object:  Schema [HangFire]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE SCHEMA [HangFire]
+GO
+/****** Object:  Table [dbo].[AllowedFileExtensions]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[AllowedFileExtensions](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Extension] [nvarchar](20) NOT NULL,
+	[IsEnabled] [bit] NOT NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[CreatedByUserId] [int] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ClientApplications]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ClientApplications](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[ApiId] [uniqueidentifier] NOT NULL,
+	[ApplicationName] [nvarchar](255) NOT NULL,
+	[ApplicationUrl] [nvarchar](500) NOT NULL,
+	[ServerAddress] [nvarchar](100) NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[CreatedByUserId] [int] NOT NULL,
+ CONSTRAINT [PK_dbo.ClientApplications] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_dbo.ClientApplications_ApiId] UNIQUE NONCLUSTERED 
+(
+	[ApiId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[DepartmentAllowedExtensions]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[DepartmentAllowedExtensions](
+	[DepartmentId] [int] NOT NULL,
+	[ExtensionId] [int] NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[DepartmentId] ASC,
+	[ExtensionId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[DepartmentNameCatalog]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[DepartmentNameCatalog](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Name] [nvarchar](255) NOT NULL,
+	[CreatedAt] [datetime] NOT NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+UNIQUE NONCLUSTERED 
+(
+	[Name] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Departments]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Departments](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Name] [nvarchar](255) NOT NULL,
+	[DataMonitorUserId] [int] NULL,
+	[IsVisibilityAllowed] [bit] NOT NULL,
+	[IsZippingAllowed] [bit] NOT NULL,
+	[IsDownloadingAllowed] [bit] NOT NULL,
+	[IsSharingAllowed] [bit] NOT NULL,
+	[IsExternalSharingAllowed] [bit] NOT NULL,
+	[IsCopyFromOtherDriveAllowed] [bit] NOT NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[ParentDepartmentId] [int] NULL,
+	[DepartmentNameCatalogId] [int] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[FileBlobs]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[FileBlobs](
+	[FileHash] [nvarchar](64) NOT NULL,
+	[BlobPath] [nvarchar](600) NOT NULL,
+	[Size] [bigint] NOT NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[RefCount] [int] NOT NULL,
+	[Pooled] [bit] NOT NULL,
+	[LastRefUpdatedAt] [datetime] NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[FileHash] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[FileChunks]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[FileChunks](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[FileIdForUpload] [nvarchar](128) NOT NULL,
+	[ChunkNumber] [int] NOT NULL,
+	[ChunkFilePath] [nvarchar](max) NOT NULL,
+	[ChunkChecksum] [nvarchar](64) NULL,
+	[UploadedAt] [datetime] NOT NULL,
+ CONSTRAINT [PK_dbo.FileChunks] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_FileChunks_FileId_ChunkNumber] UNIQUE NONCLUSTERED 
+(
+	[FileIdForUpload] ASC,
+	[ChunkNumber] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Files]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Files](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Name] [nvarchar](255) NOT NULL,
+	[ContentType] [nvarchar](100) NOT NULL,
+	[Size] [bigint] NOT NULL,
+	[FilePath] [nvarchar](max) NOT NULL,
+	[FolderId] [int] NOT NULL,
+	[UploadedAt] [datetime] NOT NULL,
+	[IsProcessing] [bit] NOT NULL,
+	[ZipPassword] [nvarchar](50) NULL,
+	[FileIdForUpload] [nvarchar](128) NULL,
+	[ProcessingProgress] [int] NOT NULL,
+	[FileHash] [nvarchar](64) NULL,
+	[LockedBySessionId] [nvarchar](128) NULL,
+	[LockedAtUtc] [datetime] NULL,
+	[FinalizationStage] [nvarchar](50) NULL,
+	[FinalizationProgress] [int] NULL,
+	[FinalizationWorker] [nvarchar](100) NULL,
+	[FinalizationStartedAtUtc] [datetime] NULL,
+	[HangfireJobId] [nvarchar](50) NULL,
+	[IsSoftDeleted] [bit] NOT NULL,
+	[SoftDeletedAt] [datetime] NULL,
+	[IsHardDeleted] [bit] NOT NULL,
+	[BinEnteredAt] [datetime] NULL,
+	[PooledAt] [datetime] NULL,
+	[OriginalPhysicalPath] [nvarchar](400) NULL,
+	[BlobHash] [nvarchar](64) NULL,
+	[PendingDelete] [bit] NOT NULL,
+ CONSTRAINT [PK_dbo.Files] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Folders]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Folders](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Name] [nvarchar](255) NOT NULL,
+	[ParentFolderId] [int] NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[OwnerUserId] [int] NULL,
+	[IsSoftDeleted] [bit] NOT NULL,
+	[SoftDeletedAt] [datetime] NULL,
+	[IsHardDeleted] [bit] NOT NULL,
+	[BinEnteredAt] [datetime] NULL,
+	[Depth] [int] NOT NULL,
+	[PathKey] [nvarchar](850) NULL,
+	[PendingDelete] [bit] NOT NULL,
+ CONSTRAINT [PK_dbo.Folders] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ShareableLinkFiles]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ShareableLinkFiles](
+	[ShareableLinkId] [int] NOT NULL,
+	[FileId] [int] NOT NULL,
+ CONSTRAINT [PK_dbo.ShareableLinkFiles] PRIMARY KEY CLUSTERED 
+(
+	[ShareableLinkId] ASC,
+	[FileId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ShareableLinkRecipients]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ShareableLinkRecipients](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[ShareableLinkId] [int] NOT NULL,
+	[EmailAddress] [nvarchar](255) NULL,
+	[UserId] [int] NULL,
+	[RecipientADUserId] [nvarchar](255) NULL,
+ CONSTRAINT [PK_dbo.ShareableLinkRecipients] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[ShareableLinks]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[ShareableLinks](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Token] [nvarchar](100) NOT NULL,
+	[PasswordHash] [nvarchar](max) NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[ExpiresAt] [datetime] NULL,
+	[ShareScope] [nvarchar](20) NOT NULL,
+ CONSTRAINT [PK_dbo.ShareableLinks] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+UNIQUE NONCLUSTERED 
+(
+	[Token] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[SystemSettings]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[SystemSettings](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[Key] [nvarchar](100) NOT NULL,
+	[Value] [nvarchar](max) NULL,
+	[UpdatedAt] [datetime] NOT NULL,
+ CONSTRAINT [PK_SystemSettings] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[UploadSessions]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[UploadSessions](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[TusFileId] [nvarchar](200) NOT NULL,
+	[UploadUrl] [nvarchar](1000) NOT NULL,
+	[Filename] [nvarchar](512) NULL,
+	[RelativePath] [nvarchar](1024) NULL,
+	[SizeBytes] [bigint] NOT NULL,
+	[OffsetBytes] [bigint] NOT NULL,
+	[SampleSha256] [nvarchar](128) NULL,
+	[FullSha256] [nvarchar](128) NULL,
+	[OwnerUserId] [int] NULL,
+	[ClaimedByUserId] [int] NULL,
+	[ClaimedAt] [datetime] NULL,
+	[TargetFolderId] [int] NULL,
+	[Status] [int] NOT NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[UpdatedAt] [datetime] NOT NULL,
+	[ExpiresAt] [datetime] NOT NULL,
+ CONSTRAINT [PK_UploadSessions] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[Users]    Script Date: 12/2/2025 4:03:55 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Users](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[ExternalUserId] [nvarchar](10) NOT NULL,
+	[Username] [nvarchar](255) NOT NULL,
+	[PasswordHash] [nvarchar](max) NOT NULL,
+	[FullName] [nvarchar](255) NOT NULL,
+	[ExternalRoleId] [int] NULL,
+	[CreatedAt] [datetime] NOT NULL,
+	[LastLoginAt] [datetime] NULL,
+	[Role] [nvarchar](50) NOT NULL,
+	[DepartmentId] [int] NULL,
+	[IsDepartmentApproved] [bit] NOT NULL,
+	[IsDepartmentRejected] [bit] NOT NULL,
+ CONSTRAINT [PK_dbo.Users] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
+ CONSTRAINT [UQ_dbo.Users_ExternalUserId] UNIQUE NONCLUSTERED 
+(
+	[ExternalUserId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UX_AllowedFileExtensions_Extension]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE UNIQUE NONCLUSTERED INDEX [UX_AllowedFileExtensions_Extension] ON [dbo].[AllowedFileExtensions]
+(
+	[Extension] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_FileChunks_FileIdForUpload_ChunkNumber]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_FileChunks_FileIdForUpload_ChunkNumber] ON [dbo].[FileChunks]
+(
+	[FileIdForUpload] ASC,
+	[ChunkNumber] ASC
+)
+INCLUDE([ChunkFilePath]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Files_BinEnteredAt_SoftDeleted]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_BinEnteredAt_SoftDeleted] ON [dbo].[Files]
+(
+	[BinEnteredAt] ASC
+)
+INCLUDE([FileHash],[FilePath],[BlobHash]) 
+WHERE ([IsSoftDeleted]=(1))
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_BlobHash]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_BlobHash] ON [dbo].[Files]
+(
+	[BlobHash] ASC
+)
+WHERE ([BlobHash] IS NOT NULL)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_FileHash]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_FileHash] ON [dbo].[Files]
+(
+	[FileHash] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_FileHash_Ext]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_FileHash_Ext] ON [dbo].[Files]
+(
+	[FileHash] ASC
+)
+INCLUDE([FilePath],[IsSoftDeleted],[BinEnteredAt],[BlobHash]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_FileHash_IsProcessing]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_FileHash_IsProcessing] ON [dbo].[Files]
+(
+	[FileHash] ASC,
+	[IsProcessing] ASC
+)
+INCLUDE([FileIdForUpload]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_FileIdForUpload]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_FileIdForUpload] ON [dbo].[Files]
+(
+	[FileIdForUpload] ASC
+)
+WHERE ([FileIdForUpload] IS NOT NULL)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Files_FolderId_IsProcessing_Includes]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_FolderId_IsProcessing_Includes] ON [dbo].[Files]
+(
+	[FolderId] ASC,
+	[IsProcessing] ASC
+)
+INCLUDE([Name],[ContentType],[Size],[UploadedAt],[ZipPassword]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_FolderId_IsProcessing_Name]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_FolderId_IsProcessing_Name] ON [dbo].[Files]
+(
+	[FolderId] ASC,
+	[IsProcessing] ASC,
+	[Name] ASC
+)
+INCLUDE([ContentType],[Size],[UploadedAt],[ZipPassword]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Files_IsProcessing_Includes]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_IsProcessing_Includes] ON [dbo].[Files]
+(
+	[IsProcessing] ASC
+)
+INCLUDE([FinalizationStage],[FinalizationProgress],[FinalizationWorker],[FinalizationStartedAtUtc]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Files_PendingDelete]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_PendingDelete] ON [dbo].[Files]
+(
+	[PendingDelete] ASC
+)
+WHERE ([PendingDelete]=(1))
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Files_Processing_FileHash]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Files_Processing_FileHash] ON [dbo].[Files]
+(
+	[FileHash] ASC,
+	[IsProcessing] ASC
+)
+INCLUDE([FileIdForUpload]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Folders_ParentFolderId_Includes]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Folders_ParentFolderId_Includes] ON [dbo].[Folders]
+(
+	[ParentFolderId] ASC
+)
+INCLUDE([Name],[OwnerUserId]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Folders_PathKey]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Folders_PathKey] ON [dbo].[Folders]
+(
+	[PathKey] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Folders_PendingDelete]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Folders_PendingDelete] ON [dbo].[Folders]
+(
+	[PendingDelete] ASC
+)
+WHERE ([PendingDelete]=(1))
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_Folders_UserRootFolder]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Folders_UserRootFolder] ON [dbo].[Folders]
+(
+	[OwnerUserId] ASC
+)
+WHERE ([ParentFolderId] IS NULL)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_ShareableLinkId_EmailAddress]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_ShareableLinkId_EmailAddress] ON [dbo].[ShareableLinkRecipients]
+(
+	[ShareableLinkId] ASC,
+	[EmailAddress] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_SystemSettings_Key]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE UNIQUE NONCLUSTERED INDEX [IX_SystemSettings_Key] ON [dbo].[SystemSettings]
+(
+	[Key] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_UploadSessions_FullSha256]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_UploadSessions_FullSha256] ON [dbo].[UploadSessions]
+(
+	[FullSha256] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_UploadSessions_SampleSha256]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_UploadSessions_SampleSha256] ON [dbo].[UploadSessions]
+(
+	[SampleSha256] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_UploadSessions_Status_ExpiresAt]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_UploadSessions_Status_ExpiresAt] ON [dbo].[UploadSessions]
+(
+	[Status] ASC,
+	[ExpiresAt] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_UploadSessions_TusFileId_Unique]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE UNIQUE NONCLUSTERED INDEX [IX_UploadSessions_TusFileId_Unique] ON [dbo].[UploadSessions]
+(
+	[TusFileId] ASC
+)
+WHERE ([TusFileId] IS NOT NULL)
+WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UQ_UploadSessions_TusFileId]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE UNIQUE NONCLUSTERED INDEX [UQ_UploadSessions_TusFileId] ON [dbo].[UploadSessions]
+(
+	[TusFileId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [IX_Users_Role]    Script Date: 12/2/2025 4:03:55 PM ******/
+CREATE NONCLUSTERED INDEX [IX_Users_Role] ON [dbo].[Users]
+(
+	[Role] ASC
+)
+INCLUDE([ExternalUserId]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[AllowedFileExtensions] ADD  CONSTRAINT [DF_AllowedFileExtensions_IsEnabled]  DEFAULT ((1)) FOR [IsEnabled]
+GO
+ALTER TABLE [dbo].[AllowedFileExtensions] ADD  CONSTRAINT [DF_AllowedFileExtensions_CreatedAt]  DEFAULT (getutcdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[ClientApplications] ADD  CONSTRAINT [DF_ClientApplications_ApiId]  DEFAULT (newid()) FOR [ApiId]
+GO
+ALTER TABLE [dbo].[ClientApplications] ADD  CONSTRAINT [DF_ClientApplications_CreatedAt]  DEFAULT (getdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[DepartmentNameCatalog] ADD  DEFAULT (getutcdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT ((0)) FOR [IsVisibilityAllowed]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT ((0)) FOR [IsZippingAllowed]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT ((0)) FOR [IsDownloadingAllowed]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT ((0)) FOR [IsSharingAllowed]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT ((0)) FOR [IsExternalSharingAllowed]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT ((0)) FOR [IsCopyFromOtherDriveAllowed]
+GO
+ALTER TABLE [dbo].[Departments] ADD  DEFAULT (getutcdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[FileBlobs] ADD  DEFAULT (getutcdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[FileBlobs] ADD  DEFAULT ((0)) FOR [RefCount]
+GO
+ALTER TABLE [dbo].[FileBlobs] ADD  DEFAULT ((0)) FOR [Pooled]
+GO
+ALTER TABLE [dbo].[Files] ADD  DEFAULT ((0)) FOR [IsProcessing]
+GO
+ALTER TABLE [dbo].[Files] ADD  DEFAULT ((0)) FOR [ProcessingProgress]
+GO
+ALTER TABLE [dbo].[Files] ADD  CONSTRAINT [DF_Files_IsSoftDeleted]  DEFAULT ((0)) FOR [IsSoftDeleted]
+GO
+ALTER TABLE [dbo].[Files] ADD  CONSTRAINT [DF_Files_IsHardDeleted]  DEFAULT ((0)) FOR [IsHardDeleted]
+GO
+ALTER TABLE [dbo].[Files] ADD  CONSTRAINT [DF_Files_PendingDelete]  DEFAULT ((0)) FOR [PendingDelete]
+GO
+ALTER TABLE [dbo].[Folders] ADD  CONSTRAINT [DF_Folders_IsSoftDeleted]  DEFAULT ((0)) FOR [IsSoftDeleted]
+GO
+ALTER TABLE [dbo].[Folders] ADD  CONSTRAINT [DF_Folders_IsHardDeleted]  DEFAULT ((0)) FOR [IsHardDeleted]
+GO
+ALTER TABLE [dbo].[Folders] ADD  CONSTRAINT [DF_Folders_Depth]  DEFAULT ((0)) FOR [Depth]
+GO
+ALTER TABLE [dbo].[Folders] ADD  CONSTRAINT [DF_Folders_PendingDelete]  DEFAULT ((0)) FOR [PendingDelete]
+GO
+ALTER TABLE [dbo].[ShareableLinks] ADD  DEFAULT ('Organization') FOR [ShareScope]
+GO
+ALTER TABLE [dbo].[SystemSettings] ADD  CONSTRAINT [DF_SystemSettings_UpdatedAt]  DEFAULT (getutcdate()) FOR [UpdatedAt]
+GO
+ALTER TABLE [dbo].[UploadSessions] ADD  CONSTRAINT [DF_UploadSessions_SizeBytes]  DEFAULT ((0)) FOR [SizeBytes]
+GO
+ALTER TABLE [dbo].[UploadSessions] ADD  CONSTRAINT [DF_UploadSessions_OffsetBytes]  DEFAULT ((0)) FOR [OffsetBytes]
+GO
+ALTER TABLE [dbo].[UploadSessions] ADD  CONSTRAINT [DF_UploadSessions_Status]  DEFAULT ((0)) FOR [Status]
+GO
+ALTER TABLE [dbo].[UploadSessions] ADD  CONSTRAINT [DF_UploadSessions_CreatedAt]  DEFAULT (getutcdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[UploadSessions] ADD  CONSTRAINT [DF_UploadSessions_UpdatedAt]  DEFAULT (getutcdate()) FOR [UpdatedAt]
+GO
+ALTER TABLE [dbo].[UploadSessions] ADD  CONSTRAINT [DF_UploadSessions_ExpiresAt]  DEFAULT (dateadd(day,(7),getutcdate())) FOR [ExpiresAt]
+GO
+ALTER TABLE [dbo].[Users] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[Users] ADD  DEFAULT ('User') FOR [Role]
+GO
+ALTER TABLE [dbo].[Users] ADD  DEFAULT ((0)) FOR [IsDepartmentApproved]
+GO
+ALTER TABLE [dbo].[Users] ADD  CONSTRAINT [DF_Users_IsDepartmentRejected]  DEFAULT ((0)) FOR [IsDepartmentRejected]
+GO
+ALTER TABLE [dbo].[AllowedFileExtensions]  WITH CHECK ADD  CONSTRAINT [FK_AllowedFileExtensions_Users_CreatedByUserId] FOREIGN KEY([CreatedByUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[AllowedFileExtensions] CHECK CONSTRAINT [FK_AllowedFileExtensions_Users_CreatedByUserId]
+GO
+ALTER TABLE [dbo].[ClientApplications]  WITH CHECK ADD  CONSTRAINT [FK_ClientApplications_Users] FOREIGN KEY([CreatedByUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[ClientApplications] CHECK CONSTRAINT [FK_ClientApplications_Users]
+GO
+ALTER TABLE [dbo].[ClientApplications]  WITH CHECK ADD  CONSTRAINT [FK_dbo.ClientApplications_dbo.Users_CreatedByUserId] FOREIGN KEY([CreatedByUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[ClientApplications] CHECK CONSTRAINT [FK_dbo.ClientApplications_dbo.Users_CreatedByUserId]
+GO
+ALTER TABLE [dbo].[DepartmentAllowedExtensions]  WITH CHECK ADD FOREIGN KEY([DepartmentId])
+REFERENCES [dbo].[Departments] ([Id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[DepartmentAllowedExtensions]  WITH CHECK ADD FOREIGN KEY([ExtensionId])
+REFERENCES [dbo].[AllowedFileExtensions] ([Id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[Departments]  WITH CHECK ADD FOREIGN KEY([DataMonitorUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[Departments]  WITH CHECK ADD  CONSTRAINT [FK_Departments_DepartmentNameCatalog] FOREIGN KEY([DepartmentNameCatalogId])
+REFERENCES [dbo].[DepartmentNameCatalog] ([Id])
+GO
+ALTER TABLE [dbo].[Departments] CHECK CONSTRAINT [FK_Departments_DepartmentNameCatalog]
+GO
+ALTER TABLE [dbo].[Departments]  WITH CHECK ADD  CONSTRAINT [FK_Departments_ParentDepartment] FOREIGN KEY([ParentDepartmentId])
+REFERENCES [dbo].[Departments] ([Id])
+GO
+ALTER TABLE [dbo].[Departments] CHECK CONSTRAINT [FK_Departments_ParentDepartment]
+GO
+ALTER TABLE [dbo].[Files]  WITH CHECK ADD  CONSTRAINT [FK_Files_FileBlobs_BlobHash] FOREIGN KEY([BlobHash])
+REFERENCES [dbo].[FileBlobs] ([FileHash])
+GO
+ALTER TABLE [dbo].[Files] CHECK CONSTRAINT [FK_Files_FileBlobs_BlobHash]
+GO
+ALTER TABLE [dbo].[Files]  WITH CHECK ADD  CONSTRAINT [FK_Files_Folders_NoCascade] FOREIGN KEY([FolderId])
+REFERENCES [dbo].[Folders] ([Id])
+GO
+ALTER TABLE [dbo].[Files] CHECK CONSTRAINT [FK_Files_Folders_NoCascade]
+GO
+ALTER TABLE [dbo].[Folders]  WITH CHECK ADD  CONSTRAINT [FK_dbo.Folders_dbo.Folders_ParentFolderId] FOREIGN KEY([ParentFolderId])
+REFERENCES [dbo].[Folders] ([Id])
+GO
+ALTER TABLE [dbo].[Folders] CHECK CONSTRAINT [FK_dbo.Folders_dbo.Folders_ParentFolderId]
+GO
+ALTER TABLE [dbo].[Folders]  WITH CHECK ADD  CONSTRAINT [FK_dbo.Folders_dbo.Users_OwnerUserId] FOREIGN KEY([OwnerUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[Folders] CHECK CONSTRAINT [FK_dbo.Folders_dbo.Users_OwnerUserId]
+GO
+ALTER TABLE [dbo].[ShareableLinkFiles]  WITH CHECK ADD  CONSTRAINT [FK_dbo.ShareableLinkFiles_dbo.Files_FileId] FOREIGN KEY([FileId])
+REFERENCES [dbo].[Files] ([Id])
+GO
+ALTER TABLE [dbo].[ShareableLinkFiles] CHECK CONSTRAINT [FK_dbo.ShareableLinkFiles_dbo.Files_FileId]
+GO
+ALTER TABLE [dbo].[ShareableLinkFiles]  WITH CHECK ADD  CONSTRAINT [FK_dbo.ShareableLinkFiles_dbo.ShareableLinks_ShareableLinkId] FOREIGN KEY([ShareableLinkId])
+REFERENCES [dbo].[ShareableLinks] ([Id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[ShareableLinkFiles] CHECK CONSTRAINT [FK_dbo.ShareableLinkFiles_dbo.ShareableLinks_ShareableLinkId]
+GO
+ALTER TABLE [dbo].[ShareableLinkRecipients]  WITH CHECK ADD  CONSTRAINT [FK_dbo.ShareableLinkRecipients_dbo.ShareableLinks_ShareableLinkId] FOREIGN KEY([ShareableLinkId])
+REFERENCES [dbo].[ShareableLinks] ([Id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[ShareableLinkRecipients] CHECK CONSTRAINT [FK_dbo.ShareableLinkRecipients_dbo.ShareableLinks_ShareableLinkId]
+GO
+ALTER TABLE [dbo].[ShareableLinkRecipients]  WITH CHECK ADD  CONSTRAINT [FK_dbo.ShareableLinkRecipients_dbo.Users_UserId] FOREIGN KEY([UserId])
+REFERENCES [dbo].[Users] ([Id])
+ON DELETE CASCADE
+GO
+ALTER TABLE [dbo].[ShareableLinkRecipients] CHECK CONSTRAINT [FK_dbo.ShareableLinkRecipients_dbo.Users_UserId]
+GO
+ALTER TABLE [dbo].[UploadSessions]  WITH CHECK ADD  CONSTRAINT [FK_UploadSessions_Folders_Target] FOREIGN KEY([TargetFolderId])
+REFERENCES [dbo].[Folders] ([Id])
+GO
+ALTER TABLE [dbo].[UploadSessions] CHECK CONSTRAINT [FK_UploadSessions_Folders_Target]
+GO
+ALTER TABLE [dbo].[UploadSessions]  WITH CHECK ADD  CONSTRAINT [FK_UploadSessions_Users_ClaimedBy] FOREIGN KEY([ClaimedByUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[UploadSessions] CHECK CONSTRAINT [FK_UploadSessions_Users_ClaimedBy]
+GO
+ALTER TABLE [dbo].[UploadSessions]  WITH CHECK ADD  CONSTRAINT [FK_UploadSessions_Users_Owner] FOREIGN KEY([OwnerUserId])
+REFERENCES [dbo].[Users] ([Id])
+GO
+ALTER TABLE [dbo].[UploadSessions] CHECK CONSTRAINT [FK_UploadSessions_Users_Owner]
+GO
+ALTER TABLE [dbo].[Users]  WITH CHECK ADD  CONSTRAINT [FK_Users_Departments] FOREIGN KEY([DepartmentId])
+REFERENCES [dbo].[Departments] ([Id])
+GO
+ALTER TABLE [dbo].[Users] CHECK CONSTRAINT [FK_Users_Departments]
+GO
+ALTER TABLE [dbo].[Files]  WITH CHECK ADD  CONSTRAINT [CK_Files_SoftHardExclusive] CHECK  ((NOT ([IsSoftDeleted]=(1) AND [IsHardDeleted]=(1))))
+GO
+ALTER TABLE [dbo].[Files] CHECK CONSTRAINT [CK_Files_SoftHardExclusive]
+GO
+ALTER TABLE [dbo].[Folders]  WITH CHECK ADD  CONSTRAINT [CK_Folders_SoftHardExclusive] CHECK  ((NOT ([IsSoftDeleted]=(1) AND [IsHardDeleted]=(1))))
+GO
+ALTER TABLE [dbo].[Folders] CHECK CONSTRAINT [CK_Folders_SoftHardExclusive]
+GO
+ALTER TABLE [dbo].[ShareableLinkRecipients]  WITH CHECK ADD  CONSTRAINT [CK_Recipient_Source] CHECK  (([EmailAddress] IS NOT NULL AND [UserId] IS NULL AND [RecipientADUserId] IS NULL OR [EmailAddress] IS NULL AND [UserId] IS NOT NULL AND [RecipientADUserId] IS NULL OR [EmailAddress] IS NULL AND [UserId] IS NULL AND [RecipientADUserId] IS NOT NULL))
+GO
+ALTER TABLE [dbo].[ShareableLinkRecipients] CHECK CONSTRAINT [CK_Recipient_Source]
+GO
+USE [master]
+GO
+ALTER DATABASE [BobDriveDB] SET  READ_WRITE 
+GO

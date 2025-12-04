@@ -1,0 +1,30 @@
+﻿@*
+    Standardized login partial intended to be rendered INSIDE the navbar collapse.
+    It will no longer float as a separate column in the page body.
+*@
+@if (Request.IsAuthenticated)
+{
+    using (Html.BeginForm("Logout", "Account", FormMethod.Post, new { id = "logoutForm", @class = "navbar-right" }))
+    {
+        @Html.AntiForgeryToken()
+        <ul class="nav navbar-nav navbar-right">
+            <li><a href="#" title="Manage">Hello @(Session["UserFullName"] ?? User.Identity.Name)!</a></li>
+            <li>@Html.ActionLink("BOBDrive APIs (BETA)", "GenerateKey", "Admin")</li>
+            <li>@Html.ActionLink("Server Matrix", "Index", "ServerMatrix")</li>
+            <li>@Html.ActionLink("Tus Uploads", "Index", "TusUpload")</li>
+            @if (ViewBag.IsPickerMode != true)
+            {
+                <li><a href="javascript:document.getElementById('logoutForm').submit()">Log off</a></li>
+            }
+        </ul>
+    }
+}
+else
+{
+    <ul class="nav navbar-nav navbar-right">
+        @if (ViewBag.IsPickerMode != true)
+        {
+            <li>@Html.ActionLink("Log in", "Login", "Account", routeValues: null, htmlAttributes: new { id = "loginLink" })</li>
+        }
+    </ul>
+}
